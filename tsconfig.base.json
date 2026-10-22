@@ -64,6 +64,11 @@
       "@deepseek-ai/dsh-experimental-client-ui-voice-input/client": ["./packages/experimental/client-ui-voice-input/src/client/index.ts"],
       "@deepseek-ai/dsh-experimental-client-ui-claude-code-mods": ["./packages/experimental/client-ui-claude-code-mods/src/index.ts"],
       "@deepseek-ai/dsh-experimental-client-ui-claude-code-mods/client": ["./packages/experimental/client-ui-claude-code-mods/src/client/index.ts"],
+      // North distribution packages live under packages/north/ with dsh-north-* names.
+      "@deepseek-ai/dsh-north-ui-brand": ["./packages/north/ui-brand/src/index.ts"],
+      "@deepseek-ai/dsh-north-ui-brand/client": ["./packages/north/ui-brand/src/client/index.ts"],
+      "@deepseek-ai/dsh-north-skill-writing": ["./packages/north/skill-writing/src/index.ts"],
+      "@deepseek-ai/dsh-north-bundle": ["./packages/north/bundle/src/index.ts"],
 
       "@deepseek-ai/dsh-experimental-claude-code-mods/types": ["./packages/experimental/claude-code-mods/src/types.ts"],
       // The example mods are source-only plugin entries; a source launch resolves the package subpath here.

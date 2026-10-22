@@ -1,0 +1,37 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/north/skill-writing/README.md
+/:
+  en: aecdfbaaa106422f
+  zh: 66bfeb5a704f279d
+/deepseek-ai-dsh-north-skill-writing:
+  en: 052dbdb7bec77b47
+  zh: 82a355960198fbbf
+/deepseek-ai-dsh-north-skill-writing/summary:
+  en: e4aa28e492a6bcad
+  zh: 2ffba91d5e62d3f2
+/deepseek-ai-dsh-north-skill-writing/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 01e3cf191d4bd47d
+/deepseek-ai-dsh-north-skill-writing/use-this-package:
+  en: c7d626711861a0aa
+  zh: d21d9edf014ea0d2
+/deepseek-ai-dsh-north-skill-writing/understand-the-implementation:
+  en: ed7cd081ebee9ebb
+  zh: fe56602a07c2e90b
+/deepseek-ai-dsh-north-skill-writing/further-exploration:
+  en: 9a5142343b6819f5
+  zh: feb8c25233a07642
+/deepseek-ai-dsh-north-skill-writing/model-experience:
+  en: f8b1a6ad5495d265
+  zh: 3507592650a4e993
+/deepseek-ai-dsh-north-skill-writing/model-experience/kv-cache-effect:
+  en: 707fc0621a3e060f
+  zh: 07f67cf19b3634fc
+/deepseek-ai-dsh-north-skill-writing/known-limitations-and-deferred-work:
+  en: f65df7620a79766a
+  zh: f5c99332de38a1ed
+/deepseek-ai-dsh-north-skill-writing/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 4f9f026b33f03db6

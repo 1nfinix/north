@@ -1,0 +1,147 @@
+# The North bundle patch: brand, LAN model, office defaults, and the reduced
+# staff surface over dsh-base + dsh-web-app. Applied after both, so the
+# profile's own cordis.patch.yml (Models page edits included) still overrides it.
+#
+# A patch replaces the targeted row's whole `config`, so each row below
+# restates every key it owns.
+
+# ── brand ────────────────────────────────────────────────────────────────────
+
+- id: ui-brand-official
+  disabled: true
+
+- insert:
+    - id: north-brand
+      name: '@deepseek-ai/dsh-north-ui-brand'
+    - id: north-skill-writing
+      name: '@deepseek-ai/dsh-north-skill-writing'
+
+- id: system-prompt
+  config:
+    includeHarnessIdentity: false
+    personaPrefix: >-
+      你是诺思（North）办公助手，由 {{model}} 模型驱动，帮助同事完成文档、表格、演示文稿和日常沟通工作。
+
+- id: harness-dev-context
+  disabled: true
+
+# ── nothing reports to DeepSeek ──────────────────────────────────────────────
+
+- id: session-telemetry-otel
+  disabled: true
+
+- id: desktop-product-telemetry
+  disabled: true
+
+- id: product-analytics
+  disabled: true
+
+- id: message-feedback
+  disabled: true
+
+- id: ui-message-feedback
+  disabled: true
+
+- id: command-feedback
+  disabled: true
+
+# Session-log sharing settings ("help improve DeepSeek") have no destination here.
+- id: ui-settings-session-log
+  disabled: true
+
+# ── LAN model: an OpenAI-compatible gateway (vLLM) named by NORTH_LLM_* ──────
+# Desktop reads these variables from resources/north.env (see NORTH.md).
+
+- id: llm-pi-ai
+  config:
+    providers:
+      north-lan:
+        displayName: !!js process.env.NORTH_LLM_DISPLAY_NAME || '模型'
+        api: openai-completions
+        baseURL: !!js process.env.NORTH_LLM_BASE_URL || 'http://127.0.0.1:8000/v1'
+        apiKeyEnv: NORTH_LLM_API_KEY
+        compat:
+          supportsDeveloperRole: false
+          supportsStore: false
+          maxTokensField: max_tokens
+        defaultContextWindow: !!js Number(process.env.NORTH_LLM_CONTEXT_WINDOW || 32768)
+        defaultMaxTokens: !!js Number(process.env.NORTH_LLM_MAX_TOKENS || 8192)
+        models:
+          - id: !!js process.env.NORTH_LLM_MODEL || 'north-default'
+            name: !!js process.env.NORTH_LLM_DISPLAY_NAME || '模型'
+
+- id: agent-default-model
+  config:
+    provider: north-lan
+    model: !!js process.env.NORTH_LLM_MODEL || 'north-default'
+
+- id: llm-deepseek
+  disabled: true
+
+- id: llm-deepseek-account
+  disabled: true
+
+- id: ui-deepseek-model-label-1017
+  disabled: true
+
+- id: web-search-deepseek
+  disabled: true
+
+- id: web-deepseek-api
+  disabled: true
+
+- id: web
+  config:
+    fetchProvider: http
+
+# Its only provider is DeepSeek search.
+- id: ui-settings-web-search
+  disabled: true
+
+# ── permissions: no full-access preset and no environment escape hatch ───────
+
+- id: sandbox-policy
+  config:
+    mode: workspace-write
+    workspaceRoot: !!js process.cwd()
+
+- id: approval
+  config:
+    policy: ask
+
+- id: permission
+  config:
+    presets:
+      read-only:
+        sandbox: read-only
+        approval: ask
+      workspace-write:
+        sandbox: workspace-write
+        approval: ask
+
+# ── staff surface: hide the host shell and plugin tooling ────────────────────
+
+- id: ui-sidebar-terminal
+  disabled: true
+
+- id: ui-plugin-manager
+  disabled: true
+
+- id: ui-cordis
+  disabled: true
+
+- id: ui-settings-account
+  disabled: true
+
+- id: preset-ptc
+  disabled: true
+
+- id: preset-minimal
+  disabled: true
+
+- id: preset-cordis
+  disabled: true
+
+- id: agent-preset-registry
+  config:
+    default: office

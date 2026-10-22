@@ -162,6 +162,12 @@
   to { opacity: 1; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .pending {
+    animation: none;
+  }
+}
+
 /* The contenteditable draft surface (grows with its content; .scroll caps
    and scrolls it). figma .InputText 34:10434 drew pl 16 / pr 12 / pt 4; the
    left pad tightened to 14, and the right pad is 8 here plus .scroll's 4px

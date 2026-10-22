@@ -318,6 +318,13 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@deepseek-ai/dsh-mcp-client` | yes | MCP client bridge: connects to MCP servers and registers their tools on ctx.tools |
 | `@deepseek-ai/dsh-mcp-resources` | no | Scoped MCP resource discovery and reading through shared model tools |
 
+## north
+
+| Package | Config | Description |
+|---|---|---|
+| `@deepseek-ai/dsh-north-skill-writing` | yes | Bundled Chinese office-writing skills: reports, minutes, notices, email, translation, and summaries |
+| `@deepseek-ai/dsh-north-ui-brand` | no | North brand occupants for the Web client's sidebar and conversation-hero slots |
+
 ## plan
 
 | Package | Config | Description |

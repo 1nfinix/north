@@ -1,0 +1,109 @@
+# North（诺思）发行版维护说明
+
+North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（MIT）的公司内部桌面版：
+同事在自己的 Windows 电脑上安装，连接局域网里的 vLLM / OpenAI 兼容网关，用于日常办公。
+
+- 分支：`north`，基于上游 dsh v0.2.1-rc.2；上游远程名为 `upstream`。
+- 新增代码都在 `packages/north/`；对上游文件的改动见下方清单，合并上游时逐项检查。
+- 保留 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`；关于页写明「基于 DeepSeek Harness (MIT)」。
+
+## 新增包
+
+| 包 | 作用 |
+|---|---|
+| `packages/north/ui-brand`（`@deepseek-ai/dsh-north-ui-brand`） | 侧栏与新会话首屏的罗盘标志和「North 诺思」；保存原始 logo 和图标生成脚本 |
+| `packages/north/skill-writing`（`@deepseek-ai/dsh-north-skill-writing`） | 六个中文办公写作技能：周报、会议纪要、公文通知、邮件、翻译、长文总结 |
+| `packages/north/bundle`（`@deepseek-ai/dsh-north-bundle`） | 配置层：品牌、局域网模型、办公助手预设（默认）、去掉完全权限、隐藏终端与插件工具、关闭遥测 |
+
+包名必须以 `@deepseek-ai/` 开头且不能设为 private，否则不会进入桌面版运行时（`scripts/release/families.ts`）。
+
+## 对上游文件的改动清单
+
+**组合接入**
+- `apps/cli/package.json`：依赖 `@deepseek-ai/dsh-north-bundle`。
+- `apps/desktop/src/project-manager.ts`：`DESKTOP_BUNDLES` 在 Web 模板后追加 North 配置包（初始化与恢复都用它）。
+- `apps/desktop/src/north-env.ts`（新文件）与 `apps/desktop/src/main.ts`（`main()` 首行调用 `applyNorthEnvironment`）：数据目录 `~/.north`、关闭遥测、读取 `resources/north.env`。
+- `apps/desktop/resources/north.env`（新文件）与 `electron-builder-config.mjs` 的 `extraResources`。
+- `tsconfig.base.json`（手写别名）、`tsconfig.host.json`、`tsconfig.client.json`：登记新包。
+
+**品牌文案**
+- `apps/desktop/src/locale.ts`、`apps/desktop/installer/strings.nsh`、`apps/desktop/installer/extract-report.h`。
+- `apps/desktop/src/main.ts`：关于面板 `applicationName`。
+- `apps/desktop/scripts/electron-builder-config.mjs`：`productName: 'North'`、协议显示名、麦克风说明。协议仍是 `dsh://`。
+- `apps/desktop/cli/dsh`、`apps/desktop/cli/dsh.cmd`、`scripts/smoke-packaged-runtime.ts`、`scripts/package-macos.ts`、`scripts/package-target.ts`、`scripts/development-app.ts`：可执行文件名 `North`。
+- `packages/client/ui-conversation/src/client/locales.ts`：首屏标题「让工作不偏航 / Keep work on course.」、徽标「内部版」、输入框提示。
+- `packages/client/locale/src/locales/{zh,en}.ts`：`brand.localBuild`。
+- `scripts/client-build-environment.ts`（`DSH_CLIENT_TITLE: 'North'`）、`apps/web/vite.config.ts`、`apps/web/index.html`、`apps/web/public/manifest.webmanifest`。
+- `packages/client/ui-chat/src/client/chat/RunningWhaleTail.tsx`：静态指示图形。
+
+**品牌图片**（由 `packages/north/ui-brand/scripts/render-assets.py` 生成，合并冲突时保留我方版本后重新生成）
+- `apps/web/public/favicon.svg`、`favicon-dark.svg`
+- `apps/desktop/resources/icon{,-macos,-windows}.{svg,png}`、`tray-windows.ico`
+- `apps/desktop/renderer/assets/welcome-brand.svg`
+- `apps/desktop/installer/assets/brand{,-2x,-dark,-dark-2x}.png`、`uninstaller-sidebar.png`
+- `packages/client/ui-chat/src/client/chat/running-whale@2x.png`
+
+- `packages/client/ui-chat/src/client/locale.ts`：思考状态「深度求索中」改为「处理中」（「深度求索」是 DeepSeek 的中文公司名）。
+
+**仓库门禁**（让新包通过上游检查）
+- `scripts/check-workspace-constraints.ts`：`packageFileExtras` 登记写作技能包的 `assets`。
+- `scripts/verify-config-source-ownership.ts`：只允许 North 配置包的 `baseURL` 读取 `NORTH_LLM_BASE_URL`（`llm-pi-ai` 没有从环境读取地址的配置项）。
+- `scripts/verify-package-readme-model-experience.ts`：登记三个新包的模型体验说明。
+- 重新生成的文档：`docs/config-catalog{,.zh}.md`、`packages/extensions/cordis-client-runner/src/client/slot-catalog.ts`、`packages/preset/agent-preset/skills/cordis-composition-reference/references/packages.md`。
+
+**打包**
+- `apps/desktop/scripts/desktop-package-environment.mjs`、`electron-builder-config.mjs`：未签名构建在所有平台跳过强制更新策略地址（上游只对 macOS 跳过）。
+
+**测试快照**：`apps/desktop/tests/expected/*` 等随产品名更新。
+
+## 合并上游
+
+```bash
+git fetch upstream
+git switch north
+git merge upstream/master
+```
+
+然后：
+1. 解决冲突：文案文件保留上游新增的键，再套用上面的替换；图片冲突保留我方版本。
+2. `pnpm install`，然后 `pnpm run gen-tsconfig-paths`。
+3. `pnpm exec vitest run packages/north` 确认 North 配置层覆盖的条目在上游仍然存在。
+4. `pnpm run build` 和 `pnpm test:expected:refresh`，检查快照差异。
+
+## 管理员：模型设置
+
+安装后编辑 `%LOCALAPPDATA%\Programs\North\resources\north.env`，保存后重启 North：
+
+```
+NORTH_LLM_BASE_URL=http://<vLLM 主机>:8000/v1
+NORTH_LLM_MODEL=<--served-model-name>
+NORTH_LLM_DISPLAY_NAME=模型
+NORTH_LLM_CONTEXT_WINDOW=32768
+NORTH_LLM_MAX_TOKENS=8192
+# NORTH_LLM_API_KEY=<网关要求时填写>
+```
+
+- Windows 用户环境变量里的同名变量优先于这个文件。
+- 用户在「设置 → 模型」页保存过提供者后，本机改用自己保存的值，`north.env` 对这台电脑不再生效。
+- 用户数据在 `%USERPROFILE%\.north`，与原版 DeepSeek Harness 的 `~/.dsh` 互不影响。
+- 推理模型（Qwen3、DeepSeek V4 等）需要在 `packages/north/bundle/cordis.patch.yml` 的 `north-lan` 模型条目里补 `reasoningEfforts` 和 `compat.thinkingFormat`，见 `docs/user/guide/providers.md`。
+
+## Windows 打包（需要 Windows 11 x64 机器）
+
+打包脚本拒绝在 macOS 上交叉构建 Windows 安装包。
+
+1. 安装 Node 24、Git、Python 3、Visual Studio C++ Build Tools 与 Windows SDK；`corepack enable`。
+2. 克隆本仓库并切到 `north` 分支，运行 `pnpm install --frozen-lockfile`。
+3. 复制 `apps/desktop/.env.windows.example` 为 `apps/desktop/.env.windows`，设置 `DSH_DESKTOP_APP_ID=com.<公司>.north`。
+4. 检查配置：`pnpm --dir apps/desktop run check:package`。
+5. 打包：`pnpm --dir apps/desktop run package:win:x64:unsigned`，产物在 `apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/`。
+6. 把安装包改名为 `North-<版本>-win-x64-setup.exe`，记录 SHA-256（`certutil -hashfile <文件> SHA256`）。
+
+未签名安装包首次运行会出现 SmartScreen「未知发布者」提示，选择「更多信息 → 仍要运行」。
+
+### 安装后验收
+
+- 开始菜单、任务栏、托盘、安装器都显示罗盘图标；关于页显示「基于 DeepSeek Harness (MIT)」。
+- 不出现 DeepSeek 登录窗口；默认预设为「办公助手」；权限中没有「完全权限」；没有终端和插件页。
+- 改 `north.env` 后重启能切换网关；写作技能可用；能生成 docx / xlsx / pptx 并导出 PDF。
+- 抓包 30 分钟（启动、对话、办公任务、空闲），DNS 中不出现 `deepseek`、`deepseeksvc`、`myqcloud`；连接只指向本机回环地址和 vLLM 主机。

@@ -33,7 +33,7 @@ describe('North bundle layer', () => {
 
   it('swaps the brand and inserts the North rows', () => {
     expect(targeted.get('ui-brand-official')?.disabled).toBe(true)
-    expect(insertedIds(north)).toEqual(expect.arrayContaining(['north-brand', 'north-skill-writing', 'preset-office']))
+    expect(insertedIds(north)).toEqual(expect.arrayContaining(['north-brand', 'north-skill-writing', 'better-sidebar', 'preset-office']))
     expect(targeted.get('system-prompt')?.config).toMatchObject({ includeHarnessIdentity: false })
     expect(targeted.get('harness-dev-context')?.disabled).toBe(true)
   })
@@ -44,11 +44,36 @@ describe('North bundle layer', () => {
     }
   })
 
+  it('points the skills section at the user skill folder', () => {
+    const row = north.flatMap(patch => patch.insert ?? []).find(entry => entry.id === 'north-skill-writing')
+    expect(row?.config).toHaveProperty('userSkillRoot')
+  })
+
+  it('mounts the preinstalled sidebar from the pinned dependency', () => {
+    const row = north.flatMap(patch => patch.insert ?? []).find(entry => entry.id === 'better-sidebar')
+    expect(row?.name).toBe('dsh-better-sidebar')
+    expect(manifest.dependencies['dsh-better-sidebar']).toMatch(/^\d+\.\d+\.\d+$/)
+  })
+
+  it('disables every row that reaches the public internet and keeps the web service provider-free', () => {
+    for (const id of ['web-fetch-http', 'web-search-deepseek', 'web-deepseek-api', 'llm-deepseek', 'llm-deepseek-account', 'session-log-deepseek', 'plugin-package-inventory-deepseek', 'deepseek-llm-api-extensions']) {
+      expect(targeted.get(id)?.disabled, id).toBe(true)
+    }
+    expect(targeted.get('web')?.config).toEqual({})
+  })
+
   it('offers no full-access preset and makes the office preset the default', () => {
     const permission = targeted.get('permission')?.config as { presets: Record<string, unknown> }
     expect(Object.keys(permission.presets)).toEqual(['read-only', 'workspace-write'])
     expect(targeted.get('approval')?.config).toEqual({ policy: 'ask' })
     expect(targeted.get('agent-preset-registry')?.config).toEqual({ default: 'office' })
+  })
+
+  it('mounts no terminal service, so neither terminal surface can spawn a shell', () => {
+    expect(targeted.get('ui-sidebar-terminal')?.disabled).toBe(true)
+    expect(targeted.get('terminal-controller')?.disabled).toBe(true)
+    const sidebar = north.flatMap(patch => patch.insert ?? []).find(entry => entry.id === 'better-sidebar')
+    expect(sidebar?.config).toEqual({ tabsEnabled: { 'terminal-bottom': false } })
   })
 
   it('routes the default model to the LAN provider', () => {

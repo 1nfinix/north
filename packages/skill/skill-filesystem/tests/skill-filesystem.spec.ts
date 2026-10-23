@@ -180,6 +180,30 @@ describe('dsh-skill-filesystem plugin exports', () => {
   })
 })
 
+describe('parseSkillFrontmatter', () => {
+  it('names the first rule a skill file breaks', () => {
+    const problem = (content: string) => {
+      const result = SkillFileSystem.parseSkillFrontmatter(content)
+      return result.ok ? undefined : result.problem
+    }
+    expect(problem('---\nname: [unterminated\n---\n')).toBe('invalid-yaml')
+    expect(problem('# no header\n')).toBe('missing-frontmatter')
+    expect(problem('---\n- a list\n---\n')).toBe('missing-frontmatter')
+    expect(problem('---\nname: x\n---\n')).toBe('missing-name-or-description')
+    expect(problem('---\nname: Bad Name\ndescription: d\n---\n')).toBe('invalid-name')
+    expect(problem('---\nname: "  "\ndescription: d\n---\n')).toBe('invalid-name')
+    expect(problem('---\nname: x\ndescription: d\nuserInvocable: false\n---\n')).toBe('invalid-invocation')
+  })
+
+  it('returns the catalog fields and the untrimmed body of a valid file', () => {
+    expect(SkillFileSystem.parseSkillFrontmatter('---\nname: x\ndescription: d\nwhenToUse: w\nuser-invocable: no\n---\n\nBody\n')).toEqual({
+      ok: true,
+      frontmatter: { name: 'x', description: 'd', whenToUse: 'w', invocation: { modelInvocable: true, userInvocable: false } },
+      body: '\nBody\n',
+    })
+  })
+})
+
 describe('FileSystemSkillProvider', () => {
   it('discovers project, custom, user, and agents skill roots in priority order', async () => {
     const home = await tempDir('skill-home')

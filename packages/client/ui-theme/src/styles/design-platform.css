@@ -2,6 +2,9 @@
    font-weight: 500 in this UI — non-variable webfonts snap intermediate
    weights unpredictably across platforms. */
 body {
+  --dsw-alias-button-send-fill: var(--dsw-alias-button-info-fill);
+  --dsw-alias-button-send-hover: var(--dsw-alias-button-info-hover);
+  --dsw-alias-button-send-label: #fff;
   --dsw-static-amber-100: rgb(254, 245, 231);
   --dsw-static-amber-400: rgb(247, 173, 49);
   --dsw-static-amber-500: rgb(245, 158, 11);

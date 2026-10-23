@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package gives the North distribution its compass mark and the name "North 诺思" in the sidebar, and its mark on the new-session hero. It replaces `@deepseek-ai/dsh-client-ui-brand-official`, which the North bundle disables. The package also keeps the source logo and the scripts that derive the favicons, desktop icons, installer artwork and running indicator from it. It has no runtime state and does not affect model requests.
+This package gives the North distribution its compass mark and the name "North 诺思" in the sidebar, and its mark on the new-session hero. It replaces `@deepseek-ai/dsh-client-ui-brand-official`, which the North bundle disables. The package also keeps the source logo and the scripts that derive the favicons, desktop icons, installer artwork and running indicator from it. It owns a removable light/dark theme override and does not affect model requests.
 
 ## Table of Contents
 
@@ -26,6 +26,8 @@ This package gives the North distribution its compass mark and the name "North �
 ## Use this package
 
 The North bundle mounts this plugin as row `north-brand`. It registers in every client build profile, so no build variable is needed.
+
+The theme service receives paired colour overrides through `theme.overrideTokens()`. White content, cool-grey navigation, ink primary controls and blue links follow the selected light/dark/system preference. Unloading North removes the overrides without changing that preference. Shared menu transparency, status colours, code highlighting and document-preview colours remain unchanged.
 
 ### Regenerating the artwork
 

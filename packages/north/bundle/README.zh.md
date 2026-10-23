@@ -40,6 +40,14 @@ kind: "package-bundle"
 
 用户在「模型设置」页保存提供者后，会把具体值写入自己的 profile 补丁，此后覆盖本层的设置。
 
+### 预装侧边栏
+
+本层以 `better-sidebar` 行挂载第三方插件 [`dsh-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar)；`package.json` 锁定其确切版本，桌面版运行时随之打包，无需在插件页安装。它在右侧边栏和底部工作台提供文件树、编辑器、Git 变动、任务和侧边对话。它的终端页依赖宿主终端服务，该服务启动的用户 shell 不受沙箱和审批策略限制；本层禁用 `terminal-controller` 行，并通过 `tabsEnabled` 默认关闭该终端页，因此两个终端都不出现；用户在侧边栏设置中重新开启该页时，它显示为不可用。其文件接口可访问操作系统用户能访问的任何路径，不受会话工作区和审批策略限制。本包还列出侧边栏声明为 peer 的工作区包，使 pnpm 链接这些包而不是安装注册表副本。升级时修改锁定版本并运行 `pnpm install`。
+
+### 内网离线
+
+诺思运行在不能访问互联网的网络中，因此本层关闭所有访问公网的条目：网页搜索与 HTTP 抓取提供者、DeepSeek 模型，以及只附加在 DeepSeek 官方 API 请求上的字段。`web` 服务保留且不固定提供者，使标准预设仍能加载；其中的 `web_search` 和 `web_fetch` 工具仍会列出，每次调用都返回不可用错误。
+
 -----
 
 <a id="understand-the-implementation"></a>
@@ -77,6 +85,7 @@ kind: "package-bundle"
 
 - **隐藏不等于禁止**——用户编辑自己的 profile 补丁后可以重新启用任何条目；本层只设默认值，不是安全边界。
 - **只有一个网关**——本层只声明一个局域网提供者；更多路由需要通过「模型设置」页或另一个补丁添加。
+- **账户服务保持挂载**——桌面端启动时读取 Gateway 账户状态，因此 `deepseek-account` 与 `account-controller` 保持启用；登录入口只在已隐藏的账户设置中，无互联网时登录会失败。
 
 <a id="dev-note"></a>
 ### 开发备注

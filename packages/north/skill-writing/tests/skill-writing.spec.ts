@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises'
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
@@ -29,6 +30,23 @@ describe('bundled North writing skills', () => {
       expect(await ctx.skills.list()).toEqual([])
     } finally {
       await ctx.fiber.dispose()
+    }
+  })
+
+  it.each([
+    ['no frontmatter', '# body only\n', /has no YAML frontmatter/],
+    ['no description', '---\nname: weekly-report\n---\nbody\n', /has no description/],
+  ])('rejects a bundled skill with %s', async (_label, raw, message) => {
+    const assetRoot = await mkdtemp(join(tmpdir(), 'dsh-north-assets-'))
+    const ctx = new Context()
+    try {
+      await cp(assets, assetRoot, { recursive: true })
+      await writeFile(join(assetRoot, 'weekly-report', 'SKILL.md'), raw)
+      await ctx.plugin(SkillRegistry)
+      await expect(ctx.plugin(SkillWriting, { assetRoot })).rejects.toThrow(message)
+    } finally {
+      await ctx.fiber.dispose()
+      await rm(assetRoot, { recursive: true, force: true })
     }
   })
 

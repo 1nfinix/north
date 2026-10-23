@@ -1,4 +1,4 @@
-- textbox "Describe what you want to build, / commands, @ files or sessions":
+- textbox "Describe the work to get done, / commands, @ files or sessions":
   - paragraph: Use the bash tool to
 - button "Cancel"
 - img "Recording…"

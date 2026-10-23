@@ -15,6 +15,17 @@
       name: '@deepseek-ai/dsh-north-ui-brand'
     - id: north-skill-writing
       name: '@deepseek-ai/dsh-north-skill-writing'
+      config:
+        # The filesystem skill provider's user root; Settings → Skills lists and opens it.
+        userSkillRoot: !!js dshHomePath('skills')
+    # Preinstalled third-party sidebar (file tree, editor, changes, tasks, side
+    # chat, terminal), pinned in package.json; its own bundle layer is not used.
+    - id: better-sidebar
+      name: 'dsh-better-sidebar'
+      config:
+        # Its bottom terminal tab has no backend (terminal-controller is off below).
+        tabsEnabled:
+          terminal-bottom: false
 
 - id: system-prompt
   config:
@@ -90,12 +101,28 @@
 - id: web-deepseek-api
   disabled: true
 
-- id: web
-  config:
-    fetchProvider: http
-
 # Its only provider is DeepSeek search.
 - id: ui-settings-web-search
+  disabled: true
+
+# ── offline intranet: no row reaches the public internet ─────────────────────
+# The web service stays so the standard preset's web tools still load; with no
+# provider mounted, every web_search and web_fetch call returns an unavailable error.
+
+- id: web
+  config: {}
+
+- id: web-fetch-http
+  disabled: true
+
+# Fields added only to official DeepSeek API requests (llm-deepseek is off above).
+- id: session-log-deepseek
+  disabled: true
+
+- id: plugin-package-inventory-deepseek
+  disabled: true
+
+- id: deepseek-llm-api-extensions
   disabled: true
 
 # ── permissions: no full-access preset and no environment escape hatch ───────
@@ -122,6 +149,11 @@
 # ── staff surface: hide the host shell and plugin tooling ────────────────────
 
 - id: ui-sidebar-terminal
+  disabled: true
+
+# The terminal service spawns user shells outside the sandbox and approval
+# policy; without it the preinstalled sidebar's terminal tab has no backend.
+- id: terminal-controller
   disabled: true
 
 - id: ui-plugin-manager

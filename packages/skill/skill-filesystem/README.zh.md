@@ -37,6 +37,8 @@ skill 可以是被扫描根目录顶层的目录 bundle `<name>/SKILL.md`，也�
 
 `disable-model-invocation: true` 会把 skill 从面向模型的目录和 loader 中排除；`user-invocable: false` 会把它从面向用户的命令中排除，省略的字段默认允许对应接口调用。这两个键接受 YAML 布尔值，以及不区分大小写的 `true`/`false`、`yes`/`no`、`on`/`off` 和 `1`/`0` 形式；被拒绝的拼写或非布尔值会让整个 skill 随警告一起被丢弃，而不会静默允许某个接口。
 
+本包把这些规则导出为 `parseSkillFrontmatter(content)`：返回目录字段和正文，或以带类型的 `problem`（`invalid-yaml`、`missing-frontmatter`、`missing-name-or-description`、`invalid-name`、`invalid-invocation`）给出第一条不满足的规则。发现流程恰好接受返回 `ok: true` 的文件，因此从磁盘列出技能的设置页可以给出相同判断。
+
 目录条目和已加载 skill 提供解析后的指令文件路径，使符号链接目录和扁平文件都能作为普通文件预览。重新加载的定位信息和资源根保留发现时的路径，包括符号链接。
 
 目录与正文具有独立的生命周期：发现阶段把 frontmatter 解析进目录条目，每次加载都会重新读取当前文件，因此编辑 skill 正文无需版本化或缓存失效。

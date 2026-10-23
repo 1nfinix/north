@@ -68,6 +68,7 @@
       "@deepseek-ai/dsh-north-ui-brand": ["./packages/north/ui-brand/src/index.ts"],
       "@deepseek-ai/dsh-north-ui-brand/client": ["./packages/north/ui-brand/src/client/index.ts"],
       "@deepseek-ai/dsh-north-skill-writing": ["./packages/north/skill-writing/src/index.ts"],
+      "@deepseek-ai/dsh-north-skill-writing/client": ["./packages/north/skill-writing/src/client/index.ts"],
       "@deepseek-ai/dsh-north-bundle": ["./packages/north/bundle/src/index.ts"],
 
       "@deepseek-ai/dsh-experimental-claude-code-mods/types": ["./packages/experimental/claude-code-mods/src/types.ts"],

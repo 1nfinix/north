@@ -1,9 +1,9 @@
 - banner:
   - button "Open right sidebar"
-- text: Into the Unknown Preview
+- text: Keep work on course. Internal
 - button "Choose workspace": workspace
 - button "Standard mode"
-- textbox "Describe what you want to build, / commands, @ files or sessions"
+- textbox "Describe the work to get done, / commands, @ files or sessions"
 - button "Add files or run commands"
 - 'button "Access mode, current: Workspace Write"': Workspace Write
 - button "Select model, current DeepSeek-V4-Flash": DeepSeek-V4-Flash

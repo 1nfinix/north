@@ -9,11 +9,13 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 
 ## 新增包
 
+审计与修复交接：[2026-10-23 代码、视觉与功能审计](NORTH-AUDIT-2026-10-23.md)。
+
 | 包 | 作用 |
 |---|---|
 | `packages/north/ui-brand`（`@deepseek-ai/dsh-north-ui-brand`） | 侧栏与新会话首屏的罗盘标志和「North 诺思」；保存原始 logo 和图标生成脚本 |
-| `packages/north/skill-writing`（`@deepseek-ai/dsh-north-skill-writing`） | 六个中文办公写作技能：周报、会议纪要、公文通知、邮件、翻译、长文总结 |
-| `packages/north/bundle`（`@deepseek-ai/dsh-north-bundle`） | 配置层：品牌、局域网模型、办公助手预设（默认）、去掉完全权限、隐藏终端与插件工具、关闭遥测 |
+| `packages/north/skill-writing`（`@deepseek-ai/dsh-north-skill-writing`） | 六个中文办公写作技能：周报、会议纪要、公文通知、邮件、翻译、长文总结；「设置 → 技能」分区列出技能并打开用户技能文件夹 `~/.north/skills` |
+| `packages/north/bundle`（`@deepseek-ai/dsh-north-bundle`） | 配置层：品牌、局域网模型、办公助手预设（默认）、去掉完全权限、禁用终端服务 `terminal-controller`（原生终端和侧边栏终端都不可用）、隐藏插件工具、关闭遥测、预装第三方侧边栏 `dsh-better-sidebar`（版本锁定在其 `package.json`；其文件接口不限于工作区，属于用户本人在界面上的操作，不给它打补丁） |
 
 包名必须以 `@deepseek-ai/` 开头且不能设为 private，否则不会进入桌面版运行时（`scripts/release/families.ts`）。
 
@@ -44,6 +46,12 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 - `packages/client/ui-chat/src/client/chat/running-whale@2x.png`
 
 - `packages/client/ui-chat/src/client/locale.ts`：思考状态「深度求索中」改为「处理中」（「深度求索」是 DeepSeek 的中文公司名）。
+- `packages/client/ui-chat/src/client/locale.ts`：中断提示 `message.failure.interrupted` 的「DSH 进程」改为「应用」，并提示先检查工作区文件再决定是否重新发起；同步 `README{,.zh}.md`、`tests/chat-view.client.spec.tsx`、`apps/web/tests/interrupted-turn.e2e.ts` 与 `snapshots/web/interrupted-turn/ui.expected.md`。
+- `apps/web/tests/` 与 `snapshots/web/` 中写死的首屏标题、徽标和输入框提示改为诺思文案（14 个测试文件、6 个快照）。
+- `packages/client/ui-settings-models/src/client/locales.ts`：首次启动「预览版说明」正文改为诺思内部试用说明（标题不变）；`src/onboarding-copy.ts` 的 `WELCOME_NOTICE_VERSION` 改为 `2026-10-23.1`，已确认旧说明的用户会再看到一次。对应测试：`tests/welcome-notice.client.spec.tsx`、`apps/web/tests/scaffold.ts`、`apps/web/tests/expected/onboarding-deepseek-config/welcome.expected.md`。
+
+**技能校验**
+- `packages/skill/skill-filesystem/src/index.ts`：把技能文件的 frontmatter 规则抽成导出函数 `parseSkillFrontmatter`（加载器的告警文本不变），供「设置 → 技能」复用；README 中英文「Skill format」一节随之说明。
 
 **仓库门禁**（让新包通过上游检查）
 - `scripts/check-workspace-constraints.ts`：`packageFileExtras` 登记写作技能包的 `assets`。
@@ -51,10 +59,24 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 - `scripts/verify-package-readme-model-experience.ts`：登记三个新包的模型体验说明。
 - 重新生成的文档：`docs/config-catalog{,.zh}.md`、`packages/extensions/cordis-client-runner/src/client/slot-catalog.ts`、`packages/preset/agent-preset/skills/cordis-composition-reference/references/packages.md`。
 
+**持续集成**
+- `.github/workflows/north-ci.yml`（新文件）：推送到 `north` 或手动触发时，在 GitHub 托管机器上运行 `check:ci:static`、`check:ci:coverage` 和 `check:ci:windows-blocking`。上游的 `ci.yml`、`ci-master.yml` 依赖上游组织的大型或自托管运行机器，本仓库没有，因此 `north` 不走 PR 流程；向 `north` 开 PR 时上游 `ci.yml` 的任务会一直排队。
+
 **打包**
 - `apps/desktop/scripts/desktop-package-environment.mjs`、`electron-builder-config.mjs`：未签名构建在所有平台跳过强制更新策略地址（上游只对 macOS 跳过）。
 
+**主题配色**（配色表见下方「主题配色」）
+- `packages/client/ui-theme/src/styles/design-platform.css`：新增 `--dsw-alias-button-send-{fill,hover,label}`，默认值等于信息按钮蓝底与白色箭头。
+- `packages/client/ui-conversation/src/client/skeleton/InputBar.module.css`：发送按钮改读上述 send token。
+- `packages/client/ui-theme/README{,.zh}.md`、`README.i18n.yaml`：「注册主题」一节说明 send token。
+- `apps/desktop/renderer/update-dialog.css`、`update-dialog.html`、`mandatory-update.css`：颜色改为 `--update-*` 变量并支持深色；关闭图标改用 CSS mask 跟随文字颜色。
+- `apps/web/tests/north-theme.e2e.ts`、`north-theme.overlay.yml`（新文件）与 `snapshots/web/north-theme/`（新目录）：浏览器配色验收；`apps/web/tsconfig.json` 排除、`tsconfig.host.json` 登记该 e2e。
+
 **测试快照**：`apps/desktop/tests/expected/*` 等随产品名更新。
+
+## 主题配色
+
+品牌客户端通过主题服务的 `overrideTokens()` 注册浅深色覆盖，颜色表位于 `packages/north/ui-brand/src/client/theme.ts`；卸载时恢复原主题，不修改用户外观偏好。说明文字档 `--dsw-alias-label-caption`（含输入框提示）在两种配色下对所有诺思表面都保持 4.5∶1 以上，由 `tests/browser-plugin.client.spec.tsx` 的对比度测试约束。桌面更新窗口不加载 Web 主题，`apps/desktop/renderer/update-dialog.css` 保持对应的主次文字、表面、按钮及焦点颜色，其他更新窗口复用该样式。菜单透明材质、状态色、代码高亮与文档预览保持共享主题定义。
 
 ## 合并上游
 

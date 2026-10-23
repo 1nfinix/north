@@ -2286,13 +2286,18 @@ export interface Config {
 ## `@deepseek-ai/dsh-north-skill-writing`
 
 - `inject`: `skills`
-- `source`: [`packages/north/skill-writing/src/index.ts:18`](../packages/north/skill-writing/src/index.ts)
+- `source`: [`packages/north/skill-writing/src/index.ts:21`](../packages/north/skill-writing/src/index.ts)
 
 ```ts config-catalog
-/** Writing skill resource location. */
+/** Writing skill resource location and the user skill folder the settings section lists. */
 export interface Config {
   /** Absolute assets directory containing skill folders; defaults to packaged assets. */
   assetRoot?: string
+  /**
+   * Absolute user skill folder served by `GET /north-skills` once the Host
+   * provides `webServer` and `connection`; omitted, no route is registered.
+   */
+  userSkillRoot?: string
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-north-skill-writing -->

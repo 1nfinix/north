@@ -107,13 +107,7 @@ interface SkillText {
   content: string
 }
 
-interface ParsedSkill extends SkillText {
-  name: string
-  description: string
-  whenToUse?: string
-  invocation: SkillInvocationPolicy
-  metadata?: Record<string, unknown>
-}
+interface ParsedSkill extends SkillText, SkillFrontmatter {}
 
 interface LocalLocator {
   path: string
@@ -807,42 +801,88 @@ async function parseSkillFile(path: string, ctx: Context, signal?: AbortSignal, 
   if (raw === undefined) {
     return undefined
   }
+  const parsed = parseSkillFrontmatter(raw.content)
+  if (!parsed.ok) {
+    ctx.logger.warn(`skill file ${path} ignored: ${parsed.message}`)
+    return undefined
+  }
+  return { ...parsed.frontmatter, path: raw.path, content: parsed.body.trim() }
+}
+
+/** Why a skill file's frontmatter does not produce a catalog entry. */
+export type SkillFrontmatterProblem =
+  | 'invalid-yaml'
+  | 'missing-frontmatter'
+  | 'missing-name-or-description'
+  | 'invalid-name'
+  | 'invalid-invocation'
+
+/** Catalog fields a valid skill file declares in its frontmatter. */
+export interface SkillFrontmatter {
+  /** Kebab-case skill name. */
+  name: string
+  /** Non-empty description. */
+  description: string
+  /** Optional non-empty `whenToUse` hint. */
+  whenToUse?: string
+  /** Resolved `disable-model-invocation` and `user-invocable` keys. */
+  invocation: SkillInvocationPolicy
+  /** Optional `metadata` object. */
+  metadata?: Record<string, unknown>
+}
+
+/** Outcome of {@link parseSkillFrontmatter}: the catalog fields and body, or the first rule the file breaks. */
+export type SkillFrontmatterResult =
+  | {
+    readonly ok: true
+    readonly frontmatter: SkillFrontmatter
+    /** Text after the closing `---` line, untrimmed. */
+    readonly body: string
+  }
+  | {
+    readonly ok: false
+    readonly problem: SkillFrontmatterProblem
+    /** English diagnostic naming the broken rule. */
+    readonly message: string
+  }
+
+/**
+ * Apply the provider's skill-file rules to one file's text: YAML frontmatter, non-empty
+ * `name` and `description`, a kebab-case name, and the strict invocation boolean grammar.
+ * Discovery accepts a file exactly when this returns `ok: true`.
+ * @param content - Complete skill file text.
+ * @returns the catalog fields and body, or the first problem found.
+ */
+export function parseSkillFrontmatter(content: string): SkillFrontmatterResult {
   let parsed
   try {
-    parsed = parseFrontmatter(raw.content)
+    parsed = parseFrontmatter(content)
   } catch (error) {
-    ctx.logger.warn(`skill file ${path} ignored: invalid YAML frontmatter: ${errorMessage(error)}`)
-    return undefined
+    return { ok: false, problem: 'invalid-yaml', message: `invalid YAML frontmatter: ${errorMessage(error)}` }
   }
-  if (!parsed) {
-    ctx.logger.warn(`skill file ${path} ignored: missing YAML frontmatter`)
-    return undefined
-  }
+  if (!parsed) return { ok: false, problem: 'missing-frontmatter', message: 'missing YAML frontmatter' }
   const name = stringField(parsed.data, 'name')
   const description = stringField(parsed.data, 'description')
   if (name === undefined || description === undefined) {
-    ctx.logger.warn(`skill file ${path} ignored: frontmatter requires name and description`)
-    return undefined
+    return { ok: false, problem: 'missing-name-or-description', message: 'frontmatter requires name and description' }
   }
-  if (!isSkillName(name)) {
-    ctx.logger.warn(`skill file ${path} ignored: invalid skill name "${name}"`)
-    return undefined
-  }
+  if (!isSkillName(name)) return { ok: false, problem: 'invalid-name', message: `invalid skill name "${name}"` }
   let invocation
   try {
     invocation = parseInvocationPolicy(parsed.data)
   } catch (error) {
-    ctx.logger.warn(`skill file ${path} ignored: invalid invocation frontmatter: ${errorMessage(error)}`)
-    return undefined
+    return { ok: false, problem: 'invalid-invocation', message: `invalid invocation frontmatter: ${errorMessage(error)}` }
   }
   return {
-    name,
-    description,
-    ...optionalString(parsed.data, 'whenToUse'),
-    invocation,
-    ...optionalMetadata(parsed.data),
-    path: raw.path,
-    content: parsed.body.trim(),
+    ok: true,
+    frontmatter: {
+      name,
+      description,
+      ...optionalString(parsed.data, 'whenToUse'),
+      invocation,
+      ...optionalMetadata(parsed.data),
+    },
+    body: parsed.body,
   }
 }
 

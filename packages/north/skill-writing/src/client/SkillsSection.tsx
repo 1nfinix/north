@@ -3,9 +3,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { NorthSkillInvocation, NorthSkillProblem, NorthSkillSummary, NorthSkillsSnapshot } from '../shared.ts'
+import {
+  SKILL_NAMES, type NorthBundledSkillName, type NorthSkillInvocation, type NorthSkillProblem, type NorthSkillSummary,
+  type NorthSkillsSnapshot,
+} from '../shared.ts'
 import { NorthSkillsLoadError, type OpenFolderOutcome } from './controller.ts'
-import type { NorthSkillsLocaleKey } from './locales.ts'
+import { BUNDLED_TITLE, type NorthSkillsLocaleKey } from './locales.ts'
 import css from './SkillsSection.module.css'
 
 /** Registration-side business face for the section. */
@@ -46,17 +49,35 @@ function invocationKey({ modelInvocable, userInvocable }: NorthSkillInvocation):
   return modelInvocable ? 'invocationModelOnly' : 'invocationOff'
 }
 
-/** Only user-invocable skills render as `/<name>`, matching the session `skills/list` catalog. */
-function SkillList({ skills, t }: { skills: readonly NorthSkillSummary[]; t: (key: NorthSkillsLocaleKey) => string }) {
+function isBundledName(name: string): name is NorthBundledSkillName {
+  return (SKILL_NAMES as readonly string[]).includes(name)
+}
+
+/**
+ * Only user-invocable skills render as `/<name>`, matching the session
+ * `skills/list` catalog. With `titled`, a bundled skill leads with its
+ * localized title and shows the command beside it; user skills have no title
+ * source, so their command is the heading.
+ */
+function SkillList({ skills, t, titled = false }: {
+  skills: readonly NorthSkillSummary[]
+  t: (key: NorthSkillsLocaleKey) => string
+  titled?: boolean
+}) {
   return (
     <ul className={css.list}>
       {skills.map((skill) => {
         const policy = invocationKey(skill.invocation)
+        const command = skill.invocation.userInvocable ? `/${skill.name}` : skill.name
+        const title = titled && isBundledName(skill.name) ? t(BUNDLED_TITLE[skill.name]) : undefined
         return (
           <li key={skill.name} className={css.row}>
-            <span className={css.name}>{skill.invocation.userInvocable ? `/${skill.name}` : skill.name}</span>
+            <span className={css.head}>
+              {title !== undefined && <span className={css.name}>{title}</span>}
+              <span className={title === undefined ? css.name : css.command}>{command}</span>
+            </span>
             {policy !== undefined && <span className={css.policy}>{t(policy)}</span>}
-            <span className={css.description}>{skill.description}</span>
+            <span className={css.description} title={skill.description}>{skill.description}</span>
           </li>
         )
       })}
@@ -112,7 +133,7 @@ export function NorthSkillsSection({ t, load, open }: NorthSkillsSectionProps) {
   )
 
   return (
-    <div className={css.section}>
+    <section className={css.section} aria-label={t('title')}>
       <h2 className={css.heading}>{t('title')}</h2>
       <p className={css.intro}>{t('intro')}</p>
       {state.kind === 'loading' && <p className={css.muted}>{t('loading')}</p>}
@@ -150,9 +171,9 @@ export function NorthSkillsSection({ t, load, open }: NorthSkillsSectionProps) {
             </>
           )}
           <h3 className={css.subheading}>{t('bundledTitle')}</h3>
-          <SkillList skills={state.snapshot.bundled} t={t} />
+          <SkillList skills={state.snapshot.bundled} t={t} titled />
         </>
       )}
-    </div>
+    </section>
   )
 }

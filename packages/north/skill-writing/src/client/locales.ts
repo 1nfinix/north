@@ -1,11 +1,24 @@
 /** Locale bundles for the North skills settings section. */
 
+import type { NorthBundledSkillName } from '../shared.ts'
+
 /** Locale keys the section renders. */
 export type NorthSkillsLocaleKey =
   | 'nav' | 'title' | 'intro' | 'folderLabel' | 'open' | 'openUnavailable' | 'openFailed' | 'refresh'
   | 'loading' | 'loadFailed' | 'refreshFailed' | 'folderTitle' | 'folderEmpty' | 'invalidTitle'
   | 'problemMissingSkillMd' | 'problemInvalidFrontmatter' | 'problemInvalidName' | 'problemInvalidInvocation' | 'problemUnreadable'
   | 'invocationModelOnly' | 'invocationUserOnly' | 'invocationOff' | 'bundledTitle'
+  | 'skillWeeklyReport' | 'skillMeetingMinutes' | 'skillOfficialNotice' | 'skillEmailDraft' | 'skillTranslation' | 'skillLongSummary'
+
+/** Display title of each bundled skill; its command name stays the invocation. */
+export const BUNDLED_TITLE: Record<NorthBundledSkillName, NorthSkillsLocaleKey> = {
+  'weekly-report': 'skillWeeklyReport',
+  'meeting-minutes': 'skillMeetingMinutes',
+  'official-notice': 'skillOfficialNotice',
+  'email-draft': 'skillEmailDraft',
+  'translation': 'skillTranslation',
+  'long-summary': 'skillLongSummary',
+}
 
 /** English copy. */
 export const en: Record<NorthSkillsLocaleKey, string> = {
@@ -32,6 +45,12 @@ export const en: Record<NorthSkillsLocaleKey, string> = {
   invocationUserOnly: 'Only when invoked with /; the assistant does not use it automatically',
   invocationOff: 'Turned off: neither the / menu nor the assistant uses it',
   bundledTitle: 'Built-in skills',
+  skillWeeklyReport: 'Weekly report',
+  skillMeetingMinutes: 'Meeting minutes',
+  skillOfficialNotice: 'Official notice',
+  skillEmailDraft: 'Email draft',
+  skillTranslation: 'Translation',
+  skillLongSummary: 'Long-document summary',
 }
 
 /** Simplified Chinese copy. */
@@ -59,4 +78,10 @@ export const zh: Record<NorthSkillsLocaleKey, string> = {
   invocationUserOnly: '仅在输入 / 时使用，助手不会自动使用',
   invocationOff: '已关闭：/ 菜单和助手都不会使用',
   bundledTitle: '内置技能',
+  skillWeeklyReport: '周报',
+  skillMeetingMinutes: '会议纪要',
+  skillOfficialNotice: '公文通知',
+  skillEmailDraft: '邮件起草',
+  skillTranslation: '翻译',
+  skillLongSummary: '长文总结',
 }

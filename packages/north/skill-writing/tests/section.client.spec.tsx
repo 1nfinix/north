@@ -4,8 +4,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NorthSkillsSection, type NorthSkillsSectionProps } from '../src/client/SkillsSection.tsx'
-import { zh } from '../src/client/locales.ts'
-import type { NorthSkillsSnapshot } from '../src/shared.ts'
+import { BUNDLED_TITLE, en, zh } from '../src/client/locales.ts'
+import { SKILL_NAMES, type NorthSkillsSnapshot } from '../src/shared.ts'
 import { NorthSkillsLoadError, type OpenFolderOutcome } from '../src/client/controller.ts'
 
 afterEach(cleanup)
@@ -16,7 +16,7 @@ const both = { modelInvocable: true, userInvocable: true }
 
 const snapshot: NorthSkillsSnapshot = {
   directory: '/Users/a/.north/skills',
-  bundled: [{ name: 'weekly-report', description: '周报', invocation: both }],
+  bundled: [{ name: 'weekly-report', description: '整理工作记录', invocation: both }],
   folder: [{ name: 'loan-memo', description: '贷款审查', invocation: both }],
   invalid: [
     { entry: 'draft', problem: 'missing-skill-md' },
@@ -67,6 +67,28 @@ describe('NorthSkillsSection', () => {
     expect(screen.getByText(zh.invocationOff)).toBeTruthy()
     expect(screen.getByText('/weekly-report')).toBeTruthy()
     expect(screen.queryAllByText(zh.invocationModelOnly)).toHaveLength(1)
+  })
+
+  it('leads built-in skills with their localized title and keeps the command beside it', async () => {
+    renderSection(() => Promise.resolve({
+      ...snapshot,
+      folder: [{ name: 'weekly-report', description: '用户自己的周报', invocation: both }],
+      invalid: [],
+    }))
+    const title = await screen.findByText(zh.skillWeeklyReport)
+    const row = title.closest('li')!
+    expect(row.textContent).toContain('/weekly-report')
+    expect(row.textContent).toContain('整理工作记录')
+    // A user skill may reuse a built-in name; it keeps its own name as the heading.
+    expect(screen.getAllByText(zh.skillWeeklyReport)).toHaveLength(1)
+    expect(screen.getByText('用户自己的周报').closest('li')!.textContent).toBe('/weekly-report用户自己的周报')
+  })
+
+  it('titles every built-in skill in both locales', () => {
+    for (const name of SKILL_NAMES) {
+      expect(zh[BUNDLED_TITLE[name]].length, name).toBeGreaterThan(0)
+      expect(en[BUNDLED_TITLE[name]].length, name).toBeGreaterThan(0)
+    }
   })
 
   it('says so when no skill was added and omits the unusable list', async () => {

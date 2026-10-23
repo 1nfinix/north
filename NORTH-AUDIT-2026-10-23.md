@@ -211,3 +211,46 @@ Desktop 的默认工作区固定为 `~/Documents/deepseek-harness/default-worksp
 - Electron 更新流程；真实内网 vLLM 网关（本次用 DeepSeek 官方 API 代替）；不经代理时的目标域名清单。
 - Web 端到端中「待判断」的三项，以及 `welcome-flow` 失败的根因，未深入排查。
 - 设置页改动未新增录制会话快照（不经过会话事件流）；升级指南未写（判断技能摘要字段变化仅本包内部使用）。
+
+## 设计建议与发行版回归（2026-10-23 第三轮追加）
+
+本节处理上文「视觉与功能设计观察」中的两项建议。
+
+### 技能页优先显示中文名称
+
+- 技能文件没有中文名字段，本次不新增 frontmatter 约定。内置 6 个技能的显示名放进本包的 locale 字典（`BUNDLED_TITLE`，中英各一份），符合「客户端文案归 locale 所有」的规则：周报、会议纪要、公文通知、邮件起草、翻译、长文总结。
+- 内置技能每行先显示中文名，调用名以等宽次要文字跟在旁边。用户技能没有名称来源，仍以调用名开头；即使用户技能与内置技能同名，也不借用内置的中文名。
+- 描述最多显示两行（完整文本仍在 DOM 中供读屏使用，悬停可看全文），长串路径可以断行。
+- 技能页根元素改为带名称的 `<section>`（ARIA region「技能」），便于定位和读屏导航。
+- `SKILL_NAMES` 移到 `shared.ts`，供 Host 和浏览器两侧共用；`index.ts` 仍从原位置导出。
+
+### 完整 North 组合的回归测试
+
+新增 `apps/web/tests/north-distribution.e2e.ts`：把 `packages/north/bundle` 作为已启用的 profile bundle 装载，与发行版的装载方式一致，不再像主题测试那样只挂品牌插件。测试内容：
+
+- 页面标题为「诺思」；
+- 连接工作区后打开右侧栏，预装侧栏的「文件 / Git / 任务管理 / 侧边对话(beta)」四个标签都存在；
+- 技能设置页的 ARIA 快照（`apps/web/tests/expected/north-distribution/skills.expected.md`）：用户技能、`user-invocable: false` 技能、失效链接，以及带中文名的 6 个内置技能；
+- 页面无脚本错误。
+
+负向对照：把快照中的「周报」临时改成「周报X」后，测试失败；还原后通过。replay 模式连续运行两次均通过，原有 `north-theme.e2e.ts` 也仍然通过。
+
+插件管理器和终端「数量为 0」的界面断言没有加入：在不含 North 的对照组合里，没能证明这两个入口会出现，这样的断言可能空转。它们在配置层面的禁用已由 `packages/north/bundle/tests/composition.spec.ts` 覆盖。
+
+### 检查结果
+
+| 检查 | 结果 |
+|---|---|
+| 本包测试 + 覆盖率 | 28 项通过，四项指标 100% |
+| North 相关测试 | 8 个文件、69 项通过 |
+| `north-distribution.e2e.ts`、`north-theme.e2e.ts`（replay） | 通过 |
+| `pnpm run build` | 9 个 gate 通过 |
+| oxlint（改动文件） | 通过 |
+| `pnpm run doc-sync` | 43 项中 42 项通过；唯一失败是已知、与本次无关的 `python/sdk/uv.lock` 提交哈希引用；`docs/config-catalog*.md` 因 `index.ts` 行号变化已重新生成 |
+| `verify-client-ui-i18n`、`verify-export-jsdoc`、`verify-translation-pairing` | 通过 |
+
+![技能页中文名称（浅色）](docs/assets/north-audit-2026-10-23/skills-titles-light.png)
+
+![技能页中文名称（深色）](docs/assets/north-audit-2026-10-23/skills-titles-dark.png)
+
+800px 窄窗口截图也已检查，无溢出或遮挡。本轮未在 Desktop 中复核新版式，Windows 仍未验证。

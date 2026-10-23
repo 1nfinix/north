@@ -2284,7 +2284,7 @@ export interface Config {
 ## `@deepseek-ai/dsh-north-skill-writing`
 
 - `inject`: `skills`
-- `source`: [`packages/north/skill-writing/src/index.ts:21`](../packages/north/skill-writing/src/index.ts)
+- `source`: [`packages/north/skill-writing/src/index.ts:19`](../packages/north/skill-writing/src/index.ts)
 
 ```ts config-catalog
 /** Writing skill resource location and the user skill folder the settings section lists. */

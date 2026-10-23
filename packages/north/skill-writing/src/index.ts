@@ -9,13 +9,11 @@ import z from '@deepseek-ai/schemastery'
 import { BUNDLED_SKILL_RANK, type SkillCandidate, type SkillProvider } from '@deepseek-ai/dsh-skill'
 import { parse as parseYaml } from 'yaml'
 import { registerNorthSkillsRoute } from './folder.ts'
+import { SKILL_NAMES } from './shared.ts'
 
 export type * from './shared.ts'
 
-/** Skill folders under the assets root, in catalog order. */
-export const SKILL_NAMES = [
-  'weekly-report', 'meeting-minutes', 'official-notice', 'email-draft', 'translation', 'long-summary',
-] as const
+export { SKILL_NAMES }
 
 /** Writing skill resource location and the user skill folder the settings section lists. */
 export interface Config {

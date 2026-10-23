@@ -72,6 +72,9 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 - `apps/desktop/renderer/update-dialog.css`、`update-dialog.html`、`mandatory-update.css`：颜色改为 `--update-*` 变量并支持深色；关闭图标改用 CSS mask 跟随文字颜色。
 - `apps/web/tests/north-theme.e2e.ts`、`north-theme.overlay.yml`（新文件）与 `snapshots/web/north-theme/`（新目录）：浏览器配色验收；`apps/web/tsconfig.json` 排除、`tsconfig.host.json` 登记该 e2e。
 
+**发行版回归**
+- `apps/web/tests/north-distribution.e2e.ts`（新文件）与 `apps/web/tests/expected/north-distribution/`（新目录）：把 North bundle 作为已启用的 profile bundle 装载完整组合，验收品牌标题、预装侧栏标签和技能设置页（含异常条目与调用权限展示）；`apps/web/tsconfig.json` 排除、`tsconfig.host.json` 登记该 e2e。
+
 **测试快照**：`apps/desktop/tests/expected/*` 等随产品名更新。
 
 ## 主题配色

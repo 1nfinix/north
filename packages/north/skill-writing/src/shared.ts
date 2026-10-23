@@ -1,5 +1,13 @@
 /** Wire contract of the North skills route, shared by the Host route and the browser settings section. */
 
+/** Bundled skill folder names under the assets root, in catalog order. */
+export const SKILL_NAMES = [
+  'weekly-report', 'meeting-minutes', 'official-notice', 'email-draft', 'translation', 'long-summary',
+] as const
+
+/** One bundled skill's folder and frontmatter name. */
+export type NorthBundledSkillName = typeof SKILL_NAMES[number]
+
 /** Authenticated GET route listing the bundled skills and the user skill folder. */
 export const NORTH_SKILLS_PATH = '/north-skills'
 

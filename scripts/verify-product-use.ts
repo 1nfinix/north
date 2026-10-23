@@ -17,7 +17,8 @@ import { collectRuntimeLocalSourceSpecifiers, collectRuntimeSourceSpecifiers } f
 const PROFILE_SOURCE = 'packages/boot/app-boot/src/profile.ts'
 const ON_DEMAND_SOURCE = 'packages/boot/app-boot/src/official-bundle-packages.ts'
 const PROFILES = ['acp', 'web', 'headless', 'sdk', 'sdk-minimal']
-const PICKER_SOURCE = 'packages/host/directory-picker-auto/src/index.ts'
+const DESKTOP_SOURCE = 'apps/desktop/src/project-manager.ts'
+const PICKER_SOURCE ='packages/host/directory-picker-auto/src/index.ts'
 const DYNAMIC_MOUNTS: Readonly<Record<string, readonly string[]>> = {
   [PICKER_SOURCE]: ['BACKEND_PACKAGES', 'SURFACE_PACKAGES'],
 }
@@ -217,6 +218,10 @@ export function verifyProductUse(
   if (isRecord(web)) {
     const webBundles = stringList(web.bundles, `${PROFILE_SOURCE} web`)
     for (const bundle of optionals) scanEntries(composeEntries(layers([...webBundles, bundle], optional)), profilePath, optional)
+    const desktopPath = resolve(root, DESKTOP_SOURCE)
+    const desktopFile = ts.createSourceFile(desktopPath, readFileSync(desktopPath, 'utf8'), ts.ScriptTarget.Latest, true)
+    const desktopBundles = stringList(literalDeclaration(desktopFile, 'DESKTOP_DISTRIBUTION_BUNDLES'), DESKTOP_SOURCE)
+    scanEntries(composeEntries(layers([...webBundles, ...desktopBundles], defaults)), profilePath, defaults)
   }
   for (const path of ['apps/cli/src/bin.ts', 'apps/desktop/src/main.ts']) scanSource(resolve(root, path), defaults)
   const htmlPath = resolve(root, 'apps/web/index.html')

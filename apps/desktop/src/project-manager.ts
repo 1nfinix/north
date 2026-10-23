@@ -30,8 +30,10 @@ const PROJECT_NAME = '@deepseek-ai/dsh-desktop-runtime'
 const DSH_PACKAGE = '@deepseek-ai/dsh'
 const CORE_BUILD_PACKAGE = '@deepseek-ai/dsh-subprocess-local'
 const WEB_PROFILE = PROFILE_TEMPLATES.web as ProfileTemplate
-/** North layers its distribution bundle over the Web template; recovery keeps it. */
-const DESKTOP_BUNDLES: readonly string[] = [...WEB_PROFILE.bundles, '@deepseek-ai/dsh-north-bundle']
+/** Distribution bundles layered over the Web template; `verify-product-use` reads this literal as Desktop's default composition. */
+const DESKTOP_DISTRIBUTION_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-north-bundle']
+/** Desktop's profile bundles; recovery keeps the distribution layer. */
+const DESKTOP_BUNDLES: readonly string[] = [...WEB_PROFILE.bundles, ...DESKTOP_DISTRIBUTION_BUNDLES]
 const WORKSPACE_SETTINGS = 'nodeLinker: hoisted\nautoInstallPeers: false\n'
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, undefined, 2)}\n`, { mode: 0o600 })

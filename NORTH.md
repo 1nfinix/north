@@ -48,6 +48,7 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 - `packages/client/ui-chat/src/client/locale.ts`：思考状态「深度求索中」改为「处理中」（「深度求索」是 DeepSeek 的中文公司名）。
 - `packages/client/ui-chat/src/client/locale.ts`：中断提示 `message.failure.interrupted` 的「DSH 进程」改为「应用」，并提示先检查工作区文件再决定是否重新发起；同步 `README{,.zh}.md`、`tests/chat-view.client.spec.tsx`、`apps/web/tests/interrupted-turn.e2e.ts` 与 `snapshots/web/interrupted-turn/ui.expected.md`。
 - `apps/web/tests/` 与 `snapshots/web/` 中写死的首屏标题、徽标和输入框提示改为诺思文案（14 个测试文件、6 个快照）。
+- `apps/web/tests/pwa-manifest.e2e.ts`（应用名与罗盘 favicon 颜色）、`apps/web/tests/built-boot.expected.e2e.ts`（侧栏 `brand.localBuild` 文案）、`scripts/client-build-environment.client.spec.ts`（官方构建标题）随产品名更新。
 - `packages/client/ui-settings-models/src/client/locales.ts`：首次启动「预览版说明」正文改为诺思内部试用说明（标题不变）；`src/onboarding-copy.ts` 的 `WELCOME_NOTICE_VERSION` 改为 `2026-10-23.1`，已确认旧说明的用户会再看到一次。对应测试：`tests/welcome-notice.client.spec.tsx`、`apps/web/tests/scaffold.ts`、`apps/web/tests/expected/onboarding-deepseek-config/welcome.expected.md`。
 
 **技能校验**
@@ -57,7 +58,10 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 - `scripts/check-workspace-constraints.ts`：`packageFileExtras` 登记写作技能包的 `assets`。
 - `scripts/verify-config-source-ownership.ts`：只允许 North 配置包的 `baseURL` 读取 `NORTH_LLM_BASE_URL`（`llm-pi-ai` 没有从环境读取地址的配置项）。
 - `scripts/verify-package-readme-model-experience.ts`：登记三个新包的模型体验说明。
-- 重新生成的文档：`docs/config-catalog{,.zh}.md`、`packages/extensions/cordis-client-runner/src/client/slot-catalog.ts`、`packages/preset/agent-preset/skills/cordis-composition-reference/references/packages.md`。
+- `apps/desktop/src/project-manager.ts` 与 `scripts/verify-product-use.ts`：North 配置包写在字面量 `DESKTOP_DISTRIBUTION_BUNDLES` 里，门禁把「Web 模板 + 该列表」当作桌面版默认组合，三个 North 包因此计入产品运行时使用。
+- `scripts/package-dependency-policy.ts`：`SAFE_HOST_DEPENDENCY_EXPORTS` 登记 `@deepseek-ai/dsh-skill-filesystem` 的 `parseSkillFrontmatter`（纯解析函数，2026-10-23 维护者人工审核批准）。
+- `scripts/verify-repository-references.ts`：纯十进制数字不再当作提交短哈希（`python/sdk/uv.lock` 里的文件大小 `6344383` 曾与上游提交前缀相撞，上游同样受影响）。
+- 重新生成的文档：`docs/module-graph{,.zh}.md`、`THIRD_PARTY_NOTICES.md`（预装侧栏 `dsh-better-sidebar`）、`docs/config-catalog{,.zh}.md`、`packages/extensions/cordis-client-runner/src/client/slot-catalog.ts`、`packages/preset/agent-preset/skills/cordis-composition-reference/references/packages.md`。
 
 **持续集成**
 - `.github/workflows/north-ci.yml`（新文件）：推送到 `north` 或手动触发时，在 GitHub 托管机器上运行 `check:ci:static`、`check:ci:coverage` 和 `check:ci:windows-blocking`。上游的 `ci.yml`、`ci-master.yml` 依赖上游组织的大型或自托管运行机器，本仓库没有，因此 `north` 不走 PR 流程；向 `north` 开 PR 时上游 `ci.yml` 的任务会一直排队。

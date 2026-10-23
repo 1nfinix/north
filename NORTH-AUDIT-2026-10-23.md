@@ -258,3 +258,28 @@ Desktop 的默认工作区固定为 `~/Documents/deepseek-harness/default-worksp
 Desktop 复核（macOS，`pnpm run dev:desktop`；`DSH_HOME`、`DSH_AGENTS_HOME`、`DSH_DESKTOP_USER_DATA_DIR` 均指向临时目录；未配置模型，未发送请求）：技能页根元素为 ARIA region「技能」；6 个内置技能都以中文名开头，「周报」计算样式为 13px、500 字重，`/weekly-report` 为 SF Mono 12px、次要文字色；描述 `-webkit-line-clamp` 为 2。浅色、深色和 800×700 窗口截图均无溢出、遮挡或乱码。默认工作区 `~/Documents/deepseek-harness/default-workspace/` 未被写入。Windows 仍未验证。
 
 ![Desktop 技能页中文名称](docs/assets/north-audit-2026-10-23/desktop-skills-titles.png)
+
+## CI 门禁与遗留项处理（2026-10-23 第四轮追加）
+
+`north` 首次推送到 `1nfinix/north` 后，North CI（run 39962859972）的 `static`、`coverage` 失败，`windows build` 通过。`static` 遇到第一个失败就停止，本地关闭该行为后完整运行，共有 4 项门禁失败。
+
+| 问题 | 根因 | 处理 |
+|---|---|---|
+| `verify-product-use`：三个 North 包「无产品运行时使用」 | 门禁只把 `PROFILE_TEMPLATES` 当作默认组合；North 配置包以字符串写在 `apps/desktop/src/project-manager.ts` 的 Desktop bundle 列表中 | 拆出字面量 `DESKTOP_DISTRIBUTION_BUNDLES`，门禁把「Web 模板 + 该列表」当作 Desktop 默认组合；新增门禁用例；从列表移除 North 配置包后门禁重新报出 3 个包 |
+| `verify-repository-references`：`python/sdk/uv.lock:113` | 文件大小 `6344383` 与上游提交 `6344383228` 的 7 位前缀相同；纯数字被当成候选短哈希。上游 `master` 同样受影响 | 候选至少包含一个 a–f 字母；新增用例，修复前该用例失败 |
+| `verify-module-graph` | 新增 `packages/north` 后未重新生成 | `pnpm run gen-module-graph` |
+| `verify-package-dependencies`：`parseSkillFrontmatter` 未分类 | `skill-writing` 从 `skill-filesystem` 导入运行时函数 | **未处理**：`scripts/package-dependency-policy.ts` 规定新增安全导出必须经人工审核，自动化代理不得添加；已交给维护者决定 |
+
+`coverage` 失败：`scripts/client-build-environment.client.spec.ts` 仍期望官方标题 "DeepSeek Harness"；`THIRD_PARTY_NOTICES.md` 缺少预装侧栏 `dsh-better-sidebar`。两项均已更新。分区在失败后停止，覆盖率阈值要等下次 CI 运行才有结论。
+
+Web 端到端（`pnpm run build` 后运行 `vitest.web.config.ts`，已去掉 `DEEPSEEK_*` 环境变量）：
+
+- `pwa-manifest`、`built-boot` 的预期已改为 North 名称、罗盘 favicon 颜色与 `brand.localBuild` 文案，现在通过。
+- `preview-boot` 现在通过；第二轮记录的 `HMR transactions cannot be nested`，推断是当时构建产物过期造成的。
+- `chat-scroll-contract`（反向位移 3.1–3.6px，阈值 2px）、`user-text-secret-mask`（显示密钥前后 x 坐标相差 0.016px）在临时 worktree 中用上游 `master` 构建后，在同一台机器上以相同方式失败，与 North 改动无关，属于本机 macOS 环境下的上游测试问题。North CI 不运行 Web 端到端。
+
+本轮验证：本地 `check:ci:static` 63/64 通过，仅剩上表未处理项；`pnpm run build` 9 个门禁通过；`pnpm run lint` 通过（仅上游实验包有一条既有警告）；`packages/north` 单测 45 项通过。
+
+仍未处理：`welcome-flow` 真实 API 失败、运行期告警没有输出去处（仓库层面现状），以及 Windows 安装验证。
+
+2026-10-23 维护者人工审核批准：`parseSkillFrontmatter` 已登记到 `SAFE_HOST_DEPENDENCY_EXPORTS`，`verify-package-dependencies` 通过。上表中「未处理」一项至此关闭。

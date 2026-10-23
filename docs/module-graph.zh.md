@@ -345,6 +345,11 @@ flowchart TD
     pkg_mcp_client["mcp-client"]
     pkg_mcp_resources["mcp-resources"]
   end
+  subgraph group_north["packages/north"]
+    pkg_north_bundle["north-bundle"]
+    pkg_north_skill_writing["north-skill-writing"]
+    pkg_north_ui_brand["north-ui-brand"]
+  end
   subgraph group_preset["packages/preset"]
     pkg_agent_preset["agent-preset"]
     pkg_agent_preset_registry["agent-preset-registry"]
@@ -1553,6 +1558,9 @@ flowchart TD
 | [`host-directory-picker-native`](../packages/host/directory-picker-native) | `host` | — |
 | [`host-open-in-app`](../packages/host/open-in-app) | `host` | — |
 | [`host-webserver`](../packages/host/webserver) | `host` | — |
+| [`north-bundle`](../packages/north/bundle) | `north` | — |
+| [`north-skill-writing`](../packages/north/skill-writing) | `north` | — |
+| [`north-ui-brand`](../packages/north/ui-brand) | `north` | — |
 | [`session-format`](../packages/session/session-format) | `session` | — |
 | [`session-format-v0-to-v1`](../packages/session/session-format-v0-to-v1) | `session` | — |
 | [`session-format-v1-to-v2`](../packages/session/session-format-v1-to-v2) | `session` | — |

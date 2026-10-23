@@ -140,6 +140,13 @@ describe('maintained repository reference policy', () => {
     expect(scanRepositoryReferences(fixture.root)).toEqual([])
   })
 
+  it('accepts decimal-only numbers that equal an abbreviated commit identifier', () => {
+    expect(findRepositoryReferences('python/sdk/uv.lock', 'size = 6344383 }', new Set(['6344383']))).toEqual([])
+    expect(findRepositoryReferences('notes.md', 'see 634438a', new Set(['634438a']))).toEqual([
+      { file: 'notes.md', line: 1, kind: 'commit-hash' },
+    ])
+  })
+
   it('accepts a prefix that two available commits share and rejects a longer unique prefix', (test) => {
     const fixture = repository(test)
     const [first, second] = collidingCommitBodies(fixture.tree, 7).map(body =>

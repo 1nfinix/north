@@ -16,6 +16,7 @@ const candidateDir = 'packages/core/candidate'
 const profile = 'packages/boot/app-boot/src/profile.ts'
 const catalog = 'packages/boot/app-boot/src/official-bundle-packages.ts'
 const patch = 'packages/bundle/base/cordis.patch.yml'
+const desktop = 'apps/desktop/src/project-manager.ts'
 
 function pkg(root: string, directory: string, name: string, fields: Record<string, unknown> = {}): void {
   write(root, `${directory}/package.json`, { name, ...fields })
@@ -44,6 +45,7 @@ function fixture(): string {
   pkg(root, 'apps/web', '@fixture/web')
   write(root, 'apps/cli/src/bin.ts', 'export {}\n')
   write(root, 'apps/desktop/src/main.ts', 'export {}\n')
+  write(root, desktop, 'const DESKTOP_DISTRIBUTION_BUNDLES: readonly string[] = []\n')
   write(root, 'apps/web/src/main.ts', 'export {}\n')
   write(root, 'apps/web/index.html', '<script type="module" src="/src/main.ts"></script>')
   pkg(root, 'packages/bundle/base', base, { dsh: { bundle: { patch: './cordis.patch.yml' } } })
@@ -234,6 +236,18 @@ describe('product package use', () => {
     expect(result.failures).toEqual([
       'packages/core/host-only (@deepseek-ai/dsh-host-only): no product runtime use; mount it, declare its maintained role, or move it to experimental',
     ])
+  })
+
+  it('counts Desktop distribution bundles layered over the Web template as default use', () => {
+    const root = fixture()
+    const distribution = '@deepseek-ai/dsh-distribution'
+    pkg(root, 'packages/bundle/distribution', distribution, { dsh: { bundle: { patch: './cordis.patch.yml' } } })
+    write(root, 'packages/bundle/distribution/cordis.patch.yml', [{ insert: [{ id: 'candidate', name: candidate }] }])
+    pkg(root, candidateDir, candidate)
+    expect(failures(root)).toContain(`${candidateDir} (${candidate}): no product runtime use`)
+    write(root, desktop, `const DESKTOP_DISTRIBUTION_BUNDLES: readonly string[] = ['${distribution}']\n`)
+    expect(failures(root)).toBe('')
+    expect(failures(root, declarations())).toContain('stale optional policy')
   })
 
   it('rejects an on-demand catalog entry without an installable bundle declaration', () => {

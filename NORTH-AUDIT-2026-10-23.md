@@ -253,4 +253,8 @@ Desktop 的默认工作区固定为 `~/Documents/deepseek-harness/default-worksp
 
 ![技能页中文名称（深色）](docs/assets/north-audit-2026-10-23/skills-titles-dark.png)
 
-800px 窄窗口截图也已检查，无溢出或遮挡。本轮未在 Desktop 中复核新版式，Windows 仍未验证。
+800px 窄窗口截图也已检查，无溢出或遮挡。
+
+Desktop 复核（macOS，`pnpm run dev:desktop`；`DSH_HOME`、`DSH_AGENTS_HOME`、`DSH_DESKTOP_USER_DATA_DIR` 均指向临时目录；未配置模型，未发送请求）：技能页根元素为 ARIA region「技能」；6 个内置技能都以中文名开头，「周报」计算样式为 13px、500 字重，`/weekly-report` 为 SF Mono 12px、次要文字色；描述 `-webkit-line-clamp` 为 2。浅色、深色和 800×700 窗口截图均无溢出、遮挡或乱码。默认工作区 `~/Documents/deepseek-harness/default-workspace/` 未被写入。Windows 仍未验证。
+
+![Desktop 技能页中文名称](docs/assets/north-audit-2026-10-23/desktop-skills-titles.png)

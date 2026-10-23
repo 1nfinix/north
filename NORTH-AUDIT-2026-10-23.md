@@ -202,7 +202,7 @@ Web 端到端失败归因：
 
 ### 副作用
 
-Desktop 的默认工作区固定为 `~/Documents/deepseek-harness/default-workspace/`，不受 `DSH_HOME` 隔离。模型在该目录新建了 `周报.docx`、`周报.pdf`、`任务清单.xlsx`、`汇报.pptx`、`weekly_docx.py`、`make_task_list.py`、`make_deck.py`；目录中原有的 `DSH-better-sidebar` 未被改动。这些文件尚未删除，等待确认。
+Desktop 的默认工作区固定为 `~/Documents/deepseek-harness/default-workspace/`，不受 `DSH_HOME` 隔离。模型在该目录新建了 `周报.docx`、`周报.pdf`、`任务清单.xlsx`、`汇报.pptx`、`weekly_docx.py`、`make_task_list.py`、`make_deck.py`；目录中原有的 `DSH-better-sidebar` 未被改动。经确认，这 7 个文件已于 2026-10-23 删除，目录中只剩 `DSH-better-sidebar`。
 
 ### 仍未验证
 

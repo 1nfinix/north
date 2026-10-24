@@ -1551,9 +1551,12 @@ def _encode_json_plain(value: Any) -> str:
     # depth as well). The output string is the only width-proportional
     # allocation, and its size the caller metered within budget. `io.StringIO`
     # accumulates without the intermediate `"".join(chunks)` second copy. A cursor
-    # frame is [kind, iterator, wrote_any]; a visit frame is (VISIT, value).
+    # frame is [kind, iterator, wrote_any]; a visit frame is (VISIT, value). A
+    # cursor writes scalar children inline and yields to the stack only for a
+    # container child, so a flat list costs one loop iteration per element
+    # instead of a frame push and pop.
     buffer = io.StringIO()
-    exhausted = object()
+    write = buffer.write
     visit, list_cursor, dict_cursor = 0, 1, 2
     stack: list[Any] = [(visit, value)]
     while stack:
@@ -1561,43 +1564,50 @@ def _encode_json_plain(value: Any) -> str:
         kind = frame[0]
         if kind == list_cursor:
             iterator, wrote_any = frame[1], frame[2]
-            child = next(iterator, exhausted)
-            if child is exhausted:
-                buffer.write("]")
-                continue
-            if wrote_any:
-                buffer.write(",")
+            for child in iterator:
+                if wrote_any:
+                    write(",")
+                else:
+                    wrote_any = True
+                child_type = type(child)
+                if child_type is list or child_type is tuple or child_type is dict:
+                    frame[2] = True
+                    stack.append(frame)
+                    stack.append((visit, child))
+                    break
+                write(_dump_scalar(child))
             else:
-                frame[2] = True
-            stack.append(frame)
-            stack.append((visit, child))
+                write("]")
             continue
         if kind == dict_cursor:
             iterator, wrote_any = frame[1], frame[2]
-            entry = next(iterator, exhausted)
-            if entry is exhausted:
-                buffer.write("}")
-                continue
-            key, item = entry
-            if wrote_any:
-                buffer.write(",")
+            for key, item in iterator:
+                if wrote_any:
+                    write(",")
+                else:
+                    wrote_any = True
+                write(_dump_scalar(key))
+                write(":")
+                item_type = type(item)
+                if item_type is list or item_type is tuple or item_type is dict:
+                    frame[2] = True
+                    stack.append(frame)
+                    stack.append((visit, item))
+                    break
+                write(_dump_scalar(item))
             else:
-                frame[2] = True
-            buffer.write(_dump_scalar(key))
-            buffer.write(":")
-            stack.append(frame)
-            stack.append((visit, item))
+                write("}")
             continue
         current = frame[1]
         current_type = type(current)
         if current_type is list or current_type is tuple:
-            buffer.write("[")
+            write("[")
             stack.append([list_cursor, iter(current), False])
         elif current_type is dict:
-            buffer.write("{")
+            write("{")
             stack.append([dict_cursor, iter(dict.items(current)), False])
         else:
-            buffer.write(_dump_scalar(current))
+            write(_dump_scalar(current))
     return buffer.getvalue()
 
 
@@ -1622,13 +1632,23 @@ def _dump_scalar(value: Any) -> str:
     validation gap turns into corrupted output.
     """
 
-    if type(value) is float:
+    value_type = type(value)
+    # ``json.dumps`` formats an exact int with ``int.__repr__`` and spells the
+    # three constants literally, so these direct forms are byte-identical; an
+    # int past the interpreter's digit limit raises the same ``ValueError``.
+    if value_type is int:
+        return int.__repr__(value)
+    if value is None:
+        return "null"
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if value_type is float:
         return _dump_float(value)
-    if type(value) is str:
+    if value_type is str:
         return _dump_string(value)
-    if value is None or type(value) is bool or type(value) is int:
-        return json.dumps(value, ensure_ascii=False, allow_nan=False)
-    raise TypeError(f"unsupported type ({type(value).__name__})")
+    raise TypeError(f"unsupported type ({value_type.__name__})")
 
 
 # A surrogate code unit, and an adjacent high-low pair. Python stores an astral
@@ -1866,85 +1886,18 @@ def _check_done_value(value: Any, max_bytes: int):
 
     over_budget = ("output-limit", f"completion value exceeded {max_bytes} bytes")
 
-    total = 0
-    on_path: set[int] = set()
-    # The walk uses O(DEPTH) space, not O(width). A container pushes ONE cursor
-    # frame that pulls its children one at a time, rather than one traversal
-    # frame per child: a flat `[0] * 6_000_000` serializes to ~12 MB (well within
-    # a modest budget) but one tuple per element is ~380 MB — an RLIMIT_AS death
-    # on a value the byte meter would admit, the very inversion this meter exists
-    # to prevent. A cursor frame is (kind, container, iterator); a visit frame is
-    # (VISIT, value, None). The upfront structural bound still rejects a wide
-    # forgery before any iteration begins.
-    exhausted = object()
-    visit, list_cursor, dict_cursor = 0, 1, 2
-    stack: list[tuple[int, Any, Any, Any]] = [(visit, value, None, None)]
-    while stack:
-        frame = stack.pop()
-        kind = frame[0]
-        if kind == list_cursor:
-            container, iterator = frame[1], frame[2]
-            child = next(iterator, exhausted)
-            if child is exhausted:
-                on_path.discard(id(container))
-                continue
-            # Resume this cursor after the child is fully walked; the child goes
-            # on top so it is visited next (order does not affect the byte total).
-            stack.append(frame)
-            stack.append((visit, child, None, None))
-            continue
-        if kind == dict_cursor:
-            container, iterator, seen = frame[1], frame[2], frame[3]
-            entry = next(iterator, exhausted)
-            if entry is exhausted:
-                on_path.discard(id(container))
-                continue
-            key, item = entry
-            # Only an EXACT str key survives: bool and int coerce or raise, and a
-            # str SUBCLASS can override the ``__len__`` the bound below reads while
-            # the encoder emits its real characters.
-            if type(key) is not str:
-                return invalid(f"non-string dict key ({type(key).__name__})")
-            # The key's JSON form folds a spelled-out surrogate pair into its
-            # astral code point (`_dump_string`), so two DIFFERENT Python keys —
-            # the two code units and the single character — encode to the same
-            # JSON member, and the host's JSON.parse silently drops one of them.
-            # That is a lossless-JSON violation, so the collision is rejected
-            # here, before any encoding.
-            combined_key = _SURROGATE_PAIR.sub(_combine_surrogate_pair, key)
-            if combined_key in seen:
-                return invalid("duplicate dict key after surrogate-pair combining")
-            seen.add(combined_key)
-            # The same string lower bound, before escaping the key.
-            if total + len(key) + 3 > max_bytes:
-                return over_budget
-            # Same counting rule as the string branch: a control-heavy KEY
-            # expands just as far, and `_dump_scalar` on a str is `_dump_string`.
-            total += _json_str_cost(key) + 1
-            if total > max_bytes:
-                return over_budget
-            stack.append(frame)
-            stack.append((visit, item, None, None))
-            continue
-        current = frame[1]
-        if current is None or type(current) is bool:
-            total += len(_dump_scalar(current).encode("utf-8"))
-        elif type(current) is str:
-            # Lower-bound BEFORE materializing the escaped form: every character
-            # is at least one UTF-8 byte plus the two quotes, so a huge or
-            # control-heavy string (whose escaped copy expands severalfold) is
-            # rejected without allocating that copy.
-            if total + len(current) + 2 > max_bytes:
-                return over_budget
-            # A lone surrogate has no UTF-8 form but a lossless JSON one — the
-            # ASCII ``\uXXXX`` escape :func:`_dump_string` emits — so it is
-            # metered, not rejected, matching the shared seam. Metered by
-            # COUNTING, not by building the escaped form: that copy plus its
-            # encode is ~6x the original for a control-heavy string, so measuring
-            # a value the budget rejects could breach RLIMIT_AS and surface as
-            # `exception` instead of the promised `output-limit`.
-            total += _json_str_cost(current)
-        elif type(current) is int:
+    def scalar_cost(current: Any, remaining: int):
+        """JSON byte cost of one exact scalar as an ``int``, or the walk's
+        rejection tuple for a non-lossless value, a non-scalar type, or a string
+        whose lower bound already exceeds ``remaining``. A return value rather
+        than an exception: the program shares this module's globals and could
+        rebind any exception class the walk names."""
+        if current is None:
+            return 4
+        current_type = type(current)
+        if current_type is bool:
+            return 4 if current else 5
+        if current_type is int:
             # The canonical boundary accepts every JS-double-exact value: an int
             # outside +-2**53-1 is fine IFF the double round-trip is exact.
             if current > js_safe or current < -js_safe:
@@ -1954,28 +1907,128 @@ def _check_done_value(value: Any, max_bytes: int):
                     exact = False
                 if not exact:
                     return invalid("integer not exactly representable as a JavaScript number")
-            total += len(_dump_scalar(current).encode("utf-8"))
-        elif type(current) is float:
+            # Decimal digits are ASCII: the character count is the UTF-8 byte count.
+            return len(_dump_scalar(current))
+        if current_type is str:
+            # Lower-bound BEFORE materializing the escaped form: every character
+            # is at least one UTF-8 byte plus the two quotes, so a huge or
+            # control-heavy string (whose escaped copy expands severalfold) is
+            # rejected without allocating that copy.
+            if len(current) + 2 > remaining:
+                return over_budget
+            # A lone surrogate has no UTF-8 form but a lossless JSON one — the
+            # ASCII ``\uXXXX`` escape :func:`_dump_string` emits — so it is
+            # metered, not rejected, matching the shared seam. Metered by
+            # COUNTING, not by building the escaped form: that copy plus its
+            # encode is ~6x the original for a control-heavy string, so measuring
+            # a value the budget rejects could breach RLIMIT_AS and surface as
+            # `exception` instead of the promised `output-limit`.
+            return _json_str_cost(current)
+        if current_type is float:
             if current != current or current in (float("inf"), float("-inf")):
                 return invalid("non-finite float")
             # JSON turns -0.0 into a sign the host parses back to JS -0; the
             # canonical boundary rejects it, so this side must too.
             if current == 0.0 and math.copysign(1.0, current) < 0:
                 return invalid("negative zero")
-            total += len(_dump_scalar(current).encode("utf-8"))
-        elif type(current) is list:
+            return len(_dump_scalar(current).encode("utf-8"))
+        # tuple, set, or any other type: not round-trippable JSON.
+        return invalid(f"unsupported type ({current_type.__name__})")
+
+    total = 0
+    on_path: set[int] = set()
+    # The walk uses O(DEPTH) space, not O(width). A container pushes ONE cursor
+    # frame that pulls its children one at a time, rather than one traversal
+    # frame per child: a flat `[0] * 6_000_000` serializes to ~12 MB (well within
+    # a modest budget) but one tuple per element is ~380 MB — an RLIMIT_AS death
+    # on a value the byte meter would admit, the very inversion this meter exists
+    # to prevent. A cursor frame is (kind, container, iterator, seen-keys); a
+    # visit frame is (VISIT, value, None, None). A cursor meters scalar children
+    # inline and yields to the stack only for a container child, so a flat list
+    # costs one loop iteration per element instead of a frame push and pop. The
+    # upfront structural bound still rejects a wide forgery before any iteration
+    # begins.
+    visit, list_cursor, dict_cursor = 0, 1, 2
+    stack: list[tuple[int, Any, Any, Any]] = [(visit, value, None, None)]
+    while stack:
+        frame = stack.pop()
+        kind = frame[0]
+        if kind == list_cursor:
+            container, iterator = frame[1], frame[2]
+            for child in iterator:
+                child_type = type(child)
+                if child_type is list or child_type is dict:
+                    # Resume this cursor after the child is fully walked; the
+                    # child goes on top so it is visited next.
+                    stack.append(frame)
+                    stack.append((visit, child, None, None))
+                    break
+                cost = scalar_cost(child, max_bytes - total)
+                if type(cost) is tuple:
+                    return cost
+                total += cost
+                if total > max_bytes:
+                    return over_budget
+            else:
+                on_path.discard(id(container))
+            continue
+        if kind == dict_cursor:
+            container, iterator, seen = frame[1], frame[2], frame[3]
+            for key, item in iterator:
+                # Only an EXACT str key survives: bool and int coerce or raise,
+                # and a str SUBCLASS can override the ``__len__`` the bound
+                # below reads while the encoder emits its real characters.
+                if type(key) is not str:
+                    return invalid(f"non-string dict key ({type(key).__name__})")
+                # The key's JSON form folds a spelled-out surrogate pair into
+                # its astral code point (`_dump_string`), so two DIFFERENT
+                # Python keys — the two code units and the single character —
+                # encode to the same JSON member, and the host's JSON.parse
+                # silently drops one of them. That is a lossless-JSON
+                # violation, so the collision is rejected here, before any
+                # encoding.
+                combined_key = _SURROGATE_PAIR.sub(_combine_surrogate_pair, key)
+                if combined_key in seen:
+                    return invalid("duplicate dict key after surrogate-pair combining")
+                seen.add(combined_key)
+                # The same string lower bound, before escaping the key.
+                if total + len(key) + 3 > max_bytes:
+                    return over_budget
+                # Same counting rule as the string branch: a control-heavy KEY
+                # expands just as far, and `_dump_scalar` on a str is
+                # `_dump_string`.
+                total += _json_str_cost(key) + 1
+                if total > max_bytes:
+                    return over_budget
+                item_type = type(item)
+                if item_type is list or item_type is dict:
+                    stack.append(frame)
+                    stack.append((visit, item, None, None))
+                    break
+                cost = scalar_cost(item, max_bytes - total)
+                if type(cost) is tuple:
+                    return cost
+                total += cost
+                if total > max_bytes:
+                    return over_budget
+            else:
+                on_path.discard(id(container))
+            continue
+        current = frame[1]
+        current_type = type(current)
+        if current_type is list:
             if id(current) in on_path:
                 return invalid("circular reference")
             count = len(current)
             total += 2 + (count - 1 if count > 1 else 0)
-            # Reject over-budget BEFORE iterating: every element serializes to at
-            # least one byte, so a wide flat forgery fails here without pulling a
-            # single child.
+            # Reject over-budget BEFORE iterating: every element serializes to
+            # at least one byte, so a wide flat forgery fails here without
+            # pulling a single child.
             if total + count > max_bytes:
                 return over_budget
             on_path.add(id(current))
             stack.append((list_cursor, current, iter(current), None))
-        elif type(current) is dict:
+        elif current_type is dict:
             if id(current) in on_path:
                 return invalid("circular reference")
             # ``len`` without materializing ``current.items()``: that list
@@ -1984,18 +2037,20 @@ def _check_done_value(value: Any, max_bytes: int):
             count = len(current)
             total += 2 + (count - 1 if count > 1 else 0)
             # Same pre-iterate bound: each entry contributes a quoted key
-            # (>= 2 bytes), a colon, and a >= 1-byte value. ``iter`` on the items
-            # view is O(1); the cursor meters each key as it is pulled.
+            # (>= 2 bytes), a colon, and a >= 1-byte value. ``iter`` on the
+            # items view is O(1); the cursor meters each key as it is pulled.
             if total + count * 4 > max_bytes:
                 return over_budget
             on_path.add(id(current))
-            # The seen-set holds one combined key per member — O(keys), the same
-            # order as the dict itself — so the surrogate-collision check below
+            # The seen-set holds one combined key per member — O(keys), the
+            # same order as the dict itself — so the surrogate-collision check
             # can detect two keys that fold to one JSON member.
             stack.append((dict_cursor, current, iter(current.items()), set()))
         else:
-            # tuple, set, or any other type: not round-trippable JSON.
-            return invalid(f"unsupported type ({type(current).__name__})")
+            cost = scalar_cost(current, max_bytes - total)
+            if type(cost) is tuple:
+                return cost
+            total += cost
         if total > max_bytes:
             return over_budget
     return None

@@ -159,6 +159,14 @@
 - id: ui-plugin-manager
   disabled: true
 
+# No plugin page: the Settings → Built-in plugins section and the inventory
+# tab that renders only inside it.
+- id: ui-settings-plugins
+  disabled: true
+
+- id: ui-settings-plugin-inventory
+  disabled: true
+
 - id: ui-cordis
   disabled: true
 

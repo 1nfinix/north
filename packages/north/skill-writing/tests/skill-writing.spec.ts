@@ -33,9 +33,29 @@ describe('bundled North writing skills', () => {
     }
   })
 
+  it('reads each bundled skill invocation policy from its frontmatter', async () => {
+    const assetRoot = await mkdtemp(join(tmpdir(), 'dsh-north-assets-'))
+    const ctx = new Context()
+    try {
+      await cp(assets, assetRoot, { recursive: true })
+      await writeFile(join(assetRoot, 'translation', 'SKILL.md'), '---\nname: translation\ndescription: 翻译\nuser-invocable: false\ndisable-model-invocation: true\n---\nbody\n')
+      await ctx.plugin(SkillRegistry)
+      await ctx.plugin(SkillWriting, { assetRoot })
+      const catalog = await ctx.skills.list()
+      expect(catalog.find(skill => skill.name === 'translation')?.invocation).toEqual({ modelInvocable: false, userInvocable: false })
+      expect(catalog.find(skill => skill.name === 'weekly-report')?.invocation).toEqual({ modelInvocable: true, userInvocable: true })
+      expect((await ctx.skills.get('translation'))?.invocation).toEqual({ modelInvocable: false, userInvocable: false })
+    } finally {
+      await ctx.fiber.dispose()
+      await rm(assetRoot, { recursive: true, force: true })
+    }
+  })
+
   it.each([
-    ['no frontmatter', '# body only\n', /has no YAML frontmatter/],
-    ['no description', '---\nname: weekly-report\n---\nbody\n', /has no description/],
+    ['no frontmatter', '# body only\n', /missing YAML frontmatter/],
+    ['no description', '---\nname: weekly-report\n---\nbody\n', /requires name and description/],
+    ['a different name', '---\nname: weekly-summary\ndescription: d\n---\nbody\n', /declares name "weekly-summary"/],
+    ['an invalid invocation flag', '---\nname: weekly-report\ndescription: d\nuser-invocable: maybe\n---\nbody\n', /invalid invocation frontmatter/],
   ])('rejects a bundled skill with %s', async (_label, raw, message) => {
     const assetRoot = await mkdtemp(join(tmpdir(), 'dsh-north-assets-'))
     const ctx = new Context()

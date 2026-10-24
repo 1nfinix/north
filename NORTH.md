@@ -14,8 +14,8 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 | 包 | 作用 |
 |---|---|
 | `packages/north/ui-brand`（`@deepseek-ai/dsh-north-ui-brand`） | 侧栏与新会话首屏的罗盘标志和「North 诺思」；保存原始 logo 和图标生成脚本 |
-| `packages/north/skill-writing`（`@deepseek-ai/dsh-north-skill-writing`） | 六个中文办公写作技能：周报、会议纪要、公文通知、邮件、翻译、长文总结；「设置 → 技能」分区列出技能并打开用户技能文件夹 `~/.north/skills` |
-| `packages/north/bundle`（`@deepseek-ai/dsh-north-bundle`） | 配置层：品牌、局域网模型、办公助手预设（默认）、去掉完全权限、禁用终端服务 `terminal-controller`（原生终端和侧边栏终端都不可用）、隐藏插件工具、关闭遥测、预装第三方侧边栏 `dsh-better-sidebar`（版本锁定在其 `package.json`；其文件接口不限于工作区，属于用户本人在界面上的操作，不给它打补丁） |
+| `packages/north/skill-writing`（`@deepseek-ai/dsh-north-skill-writing`） | 六个中文办公写作技能：周报、会议纪要、公文通知、邮件、翻译、长文总结；「设置 → 技能」分区按 `/` 菜单读取的同一份注册表视图列出当前生效的技能（含来源），单独列出用户技能文件夹 `~/.north/skills` 中无法使用或被覆盖的条目，并能打开该文件夹 |
+| `packages/north/bundle`（`@deepseek-ai/dsh-north-bundle`） | 配置层：品牌、局域网模型、办公助手预设（默认）、去掉完全权限、禁用终端服务 `terminal-controller`（原生终端和侧边栏终端都不可用）、禁用插件管理和「设置 → 内置插件」页（`ui-plugin-manager`、`ui-settings-plugins`、`ui-settings-plugin-inventory`）、关闭遥测、预装第三方侧边栏 `dsh-better-sidebar`（版本锁定在其 `package.json`；其文件接口不限于工作区，属于用户本人在界面上的操作，不给它打补丁） |
 
 包名必须以 `@deepseek-ai/` 开头且不能设为 private，否则不会进入桌面版运行时（`scripts/release/families.ts`）。
 
@@ -64,7 +64,8 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 - 重新生成的文档：`docs/module-graph{,.zh}.md`、`THIRD_PARTY_NOTICES.md`（预装侧栏 `dsh-better-sidebar`）、`docs/config-catalog{,.zh}.md`、`packages/extensions/cordis-client-runner/src/client/slot-catalog.ts`、`packages/preset/agent-preset/skills/cordis-composition-reference/references/packages.md`。
 
 **持续集成**
-- `.github/workflows/north-ci.yml`（新文件）：推送到 `north` 或手动触发时，在 GitHub 托管机器上运行 `check:ci:static`、`check:ci:coverage` 和 `check:ci:windows-blocking`。上游的 `ci.yml`、`ci-master.yml` 依赖上游组织的大型或自托管运行机器，本仓库没有，因此 `north` 不走 PR 流程；向 `north` 开 PR 时上游 `ci.yml` 的任务会一直排队。
+- `.github/workflows/north-ci.yml`（新文件）：推送到 `north` 或手动触发时，在 GitHub 托管机器上运行 `check:ci:static`、`check:ci:coverage`、`check:ci:windows-blocking` 和 `check:ci:north-web`。`north-web` 任务只安装 Chromium。
+- `scripts/run-gates.ts` 的 `ci-north-web` 聚合与 `package.json` 的 `check:ci:north-web`、`test:web:north`：先 `build:artifacts`，再以 `DSH_SNAPSHOT=replay` 运行 `north-distribution.e2e.ts` 和 `north-theme.e2e.ts`；`scripts/north-ci-workflow.spec.ts` 校验从工作流到这两个测试文件的完整链路。上游的 `ci.yml`、`ci-master.yml` 依赖上游组织的大型或自托管运行机器，本仓库没有，因此 `north` 不走 PR 流程；向 `north` 开 PR 时上游 `ci.yml` 的任务会一直排队。
 
 **打包**
 - `apps/desktop/scripts/desktop-package-environment.mjs`、`electron-builder-config.mjs`：未签名构建在所有平台跳过强制更新策略地址（上游只对 macOS 跳过）。
@@ -77,7 +78,11 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 - `apps/web/tests/north-theme.e2e.ts`、`north-theme.overlay.yml`（新文件）与 `snapshots/web/north-theme/`（新目录）：浏览器配色验收；`apps/web/tsconfig.json` 排除、`tsconfig.host.json` 登记该 e2e。
 
 **发行版回归**
-- `apps/web/tests/north-distribution.e2e.ts`（新文件）与 `apps/web/tests/expected/north-distribution/`（新目录）：把 North bundle 作为已启用的 profile bundle 装载完整组合，验收品牌标题、预装侧栏标签和技能设置页（含异常条目与调用权限展示）；`apps/web/tsconfig.json` 排除、`tsconfig.host.json` 登记该 e2e。
+- `apps/web/tests/north-distribution.e2e.ts`（新文件）与 `apps/web/tests/expected/north-distribution/`（新目录）：把 North bundle 作为已启用的 profile bundle 装载完整组合，验收品牌标题、预装侧栏标签、界面上没有终端入口和「内置插件」页，以及技能设置页：生效技能来自项目 `.dsh/skills`、`~/.agents/skills`、技能文件夹（含点文件）和内置技能，其 `/` 命令与新会话 `/` 菜单的技能项一致，文件夹诊断列出异常条目和被覆盖条目；`apps/web/tsconfig.json` 排除、`tsconfig.host.json` 登记该 e2e。
+
+**测试可靠性**（上游文件，与 North 功能无关）
+- `packages/experimental/ptc-runtime-python/py/bootstrap.py`：完成值检查 `_check_done_value` 与编码 `_encode_json_plain` 在游标内直接处理标量子元素，`_dump_scalar` 对精确的 `int`、`bool`、`None` 直接格式化（与 `json.dumps` 逐字节一致）。内存仍是 O(深度)；600 万元素列表的检查加编码从约 28.6 秒降到约 4 秒，覆盖率分区并发时不再触发运行时的 60 秒墙钟上限。
+- `scripts/persistence-epoch-header.spec.ts`：改读已提交的 `docs/persistence-schema.json`（`verify-persistence-changes` 保证它与重新提取的结果一致），不再为读取一个请求头节点重新编译全部 Host 源码。
 
 **测试快照**：`apps/desktop/tests/expected/*` 等随产品名更新。
 

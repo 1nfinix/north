@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This bundle turns the Desktop composition into North (诺思). It swaps the brand, routes the default model to the company's OpenAI-compatible LAN gateway, adds the 办公助手 (office assistant) preset as the default together with the North writing skills, removes the full-access permission preset, hides the terminal and plugin tooling from staff, and disables every telemetry and feedback row that reports to DeepSeek. The Desktop profile lists it after the two upstream bundles.
+This bundle turns the Desktop composition into North (诺思). It swaps the brand, routes the default model to the company's OpenAI-compatible LAN gateway, adds the 办公助手 (office assistant) preset as the default together with the North writing skills, removes the full-access permission preset, disables the terminal service, the plugin manager, and the Settings → Built-in plugins page, so staff see no terminal and no plugin page, and disables every telemetry and feedback row that reports to DeepSeek. The Desktop profile lists it after the two upstream bundles.
 
 ## Table of Contents
 

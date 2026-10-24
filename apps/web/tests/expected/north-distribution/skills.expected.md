@@ -1,22 +1,27 @@
 - region "技能":
   - heading "技能" [level=2]
-  - paragraph: 把包含 SKILL.md 的技能文件夹放进下面的文件夹即可添加，无需重启；带 / 的技能输入 / 即可看到。
+  - paragraph: 这里列出默认工作区中新会话可用的技能，与 / 菜单读取同一份清单。把包含 SKILL.md 的技能文件夹放进下面的技能文件夹即可添加，无需重启。
   - text: 技能文件夹
   - code: {{cwd}}/.dsh-home/skills
   - button "打开文件夹"
   - button "刷新"
-  - heading "已添加的技能" [level=3]
-  - list:
-    - listitem: audit-hidden 由助手自动使用，不在 / 菜单中 仅由助手自动使用
-    - listitem: /loan-memo 贷款审查备忘录
-  - heading "无法使用的条目" [level=3]
-  - list:
-    - listitem: dangling 无法读取这个条目，例如指向不存在位置的快捷方式。修复或移走后点「刷新」
-  - heading "内置技能" [level=3]
-  - list:
-    - listitem: 周报 /weekly-report 撰写周报、月报或阶段工作汇报：把零散的工作记录整理成「完成情况、进行中、问题与风险、下阶段计划」结构，量化结果并标明需要协调的事项。
-    - listitem: 会议纪要 /meeting-minutes 根据会议录音转写、笔记或聊天记录整理会议纪要：提炼议题、讨论要点、决议和待办事项（负责人与截止日期），去掉口语和重复内容。
-    - listitem: 公文通知 /official-notice 起草公文、通知、通报、请示、函等正式文书：按 GB/T 9704 的要素组织标题、主送机关、正文、落款和日期，使用规范、简洁的公文语体。
-    - listitem: 邮件起草 /email-draft 起草或润色工作邮件：根据收件人和目的确定正式程度，写出明确的主题行、称呼、正文要点、行动请求和结尾，也可回复或改写已有邮件。
-    - listitem: 翻译 /translation 翻译工作文档、邮件和资料（中英互译为主）：保持术语一致、保留原文格式和数字，按需给出对照表或术语表；也可翻译 Word、Excel、PPT 文件。
-    - listitem: 长文总结 /long-summary 总结长文档、报告、合同、政策或多份资料：给出一句话结论、要点摘要和分章节摘要，标注出处页码或段落，只使用原文信息并标明不确定之处。
+  - region "当前生效的技能":
+    - heading "当前生效的技能" [level=3]
+    - list:
+      - listitem: audit-hidden 技能文件夹 由助手自动使用，不在 / 菜单中 仅由助手自动使用
+      - listitem: /dotted 技能文件夹 点文件中的技能
+      - listitem: /dup 项目 .dsh/skills 项目版本胜出
+      - listitem: 邮件起草 /email-draft 内置 起草或润色工作邮件：根据收件人和目的确定正式程度，写出明确的主题行、称呼、正文要点、行动请求和结尾，也可回复或改写已有邮件。
+      - listitem: /loan-memo 技能文件夹 贷款审查备忘录
+      - listitem: 长文总结 /long-summary 内置 总结长文档、报告、合同、政策或多份资料：给出一句话结论、要点摘要和分章节摘要，标注出处页码或段落，只使用原文信息并标明不确定之处。
+      - listitem: 会议纪要 /meeting-minutes 内置 根据会议录音转写、笔记或聊天记录整理会议纪要：提炼议题、讨论要点、决议和待办事项（负责人与截止日期），去掉口语和重复内容。
+      - listitem: 公文通知 /official-notice 内置 起草公文、通知、通报、请示、函等正式文书：按 GB/T 9704 的要素组织标题、主送机关、正文、落款和日期，使用规范、简洁的公文语体。
+      - listitem: /repo-guide 项目 .dsh/skills 项目内的写作约定
+      - listitem: /shared-tool ~/.agents/skills 共享技能
+      - listitem: 翻译 /translation 内置 翻译工作文档、邮件和资料（中英互译为主）：保持术语一致、保留原文格式和数字，按需给出对照表或术语表；也可翻译 Word、Excel、PPT 文件。
+      - listitem: 周报 /weekly-report 内置 撰写周报、月报或阶段工作汇报：把零散的工作记录整理成「完成情况、进行中、问题与风险、下阶段计划」结构，量化结果并标明需要协调的事项。
+  - region "技能文件夹中的问题":
+    - heading "技能文件夹中的问题" [level=3]
+    - list:
+      - listitem: dangling 无法读取这个条目，例如指向不存在位置的快捷方式。修复或移走后点「刷新」
+      - listitem: dup.md 未使用：同名技能已从以下位置生效 项目 .dsh/skills

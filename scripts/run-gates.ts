@@ -30,6 +30,7 @@ export type Mode =
   | 'ci-windows-blocking'
   | 'ci-windows-complete'
   | 'ci-windows-observational-ready'
+  | 'ci-north-web'
   | 'node-compat'
   | 'check-all'
   | 'hygiene'
@@ -162,6 +163,7 @@ function parseMode(raw: string | undefined): Mode {
     case 'ci-windows-blocking':
     case 'ci-windows-complete':
     case 'ci-windows-observational-ready':
+    case 'ci-north-web':
     case 'node-compat':
     case 'check-all':
     case 'hygiene':
@@ -170,7 +172,7 @@ function parseMode(raw: string | undefined): Mode {
       return raw
     default:
       throw new Error(
-        `run-gates: expected mode ci-primary | ci-linux-primary | ci-static | ci-lint-contracts-ready | ci-coverage | ci-unit | ci-bench | ci-snapshot | ci-artifacts | ci-consumers | ci-windows-blocking | ci-windows-complete | ci-windows-observational-ready | node-compat | check-all | hygiene | doc-sync | doc-quick, got ${JSON.stringify(raw)}.`,
+        `run-gates: expected mode ci-primary | ci-linux-primary | ci-static | ci-lint-contracts-ready | ci-coverage | ci-unit | ci-bench | ci-snapshot | ci-artifacts | ci-consumers | ci-windows-blocking | ci-windows-complete | ci-windows-observational-ready | ci-north-web | node-compat | check-all | hygiene | doc-sync | doc-quick, got ${JSON.stringify(raw)}.`,
       )
   }
 }
@@ -327,6 +329,8 @@ export function gatesForMode(selected: Mode): Gate[] {
           ...gate.needs === undefined ? {} : { needs: gate.needs.filter(id => id !== 'build') },
           ...gate.after === undefined ? {} : { after: gate.after.filter(id => id !== 'build') },
         }))
+    case 'ci-north-web':
+      return northWebGates()
     case 'node-compat':
       return nodeCompatGates()
     case 'check-all':
@@ -577,6 +581,19 @@ function webSnapshotGate(needs: string[], after?: string[]): Gate {
     env: { DSH_SNAPSHOT: 'replay' },
     ...order,
   })
+}
+
+/** The North distribution Web regressions; they replay against the Web build the first gate writes. */
+function northWebGates(): Gate[] {
+  return [
+    pnpmScript('build', 'build:artifacts', { label: 'build artifacts' }),
+    pnpmScript('north-web', 'test:web:north', {
+      label: 'North distribution Web regression',
+      displayCommand: 'DSH_SNAPSHOT=replay pnpm run test:web:north',
+      env: { DSH_SNAPSHOT: 'replay' },
+      needs: ['build'],
+    }),
+  ]
 }
 
 function ciWindowsBlockingGates(): Gate[] {

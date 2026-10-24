@@ -1,15 +1,16 @@
-/** Host route that lists the bundled skills and the user skill folder for the browser settings section. */
+/** Host route that lists the effective skill catalog and diagnoses the user skill folder for the browser settings section. */
 
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { mkdir, readdir, readFile, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, realpath, stat } from 'node:fs/promises'
 import type { Stats } from 'node:fs'
 import { extname, join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
+import type { SkillCatalogSnapshot, SkillSummary, SkillViewOptions } from '@deepseek-ai/dsh-skill'
 import { parseSkillFrontmatter, type SkillFrontmatterProblem } from '@deepseek-ai/dsh-skill-filesystem'
 import {
-  NORTH_SKILLS_PATH, type NorthSkillInvalidEntry, type NorthSkillProblem, type NorthSkillSummary, type NorthSkillsFailure,
-  type NorthSkillsSnapshot,
+  NORTH_SKILLS_PATH, type NorthEffectiveSkill, type NorthSkillInactiveEntry, type NorthSkillInvalidEntry, type NorthSkillProblem,
+  type NorthSkillSummary, type NorthSkillsFailure, type NorthSkillsSnapshot,
 } from './shared.ts'
 
 /** Trust surface consumed here; the browser-side connection package owns the full type. */
@@ -17,14 +18,27 @@ interface NorthSkillsConnection {
   requestRejection(request: { readonly headers: IncomingMessage['headers'] }): 401 | 403 | undefined
 }
 
-/** Directories the route reads. */
+/** The working-directory service member the route reads; `dsh-working-directory` owns the full type. */
+interface DefaultWorkingDirectory {
+  readonly defaultDirectory: string
+}
+
+/** The agent-preset registry member the route reads; `dsh-agent-preset-registry` owns the full type. */
+interface PresetScopes {
+  acquireScope(id?: string): Promise<{ key: NonNullable<SkillViewOptions['scope']> } & AsyncDisposable>
+}
+
+/** The user skill folder the route diagnoses. */
 export interface NorthSkillFolderPaths {
-  /** Absolute directory holding the bundled `<name>/SKILL.md` folders. */
-  readonly assetRoot: string
-  /** Bundled skill folder names in catalog order. */
-  readonly bundledNames: readonly string[]
-  /** Absolute user skill folder scanned by the filesystem skill provider. */
+  /** Absolute user skill folder; the filesystem skill provider scans it as its user DSH root. */
   readonly userSkillRoot: string
+}
+
+/** One usable user-folder skill and the file that declares it. */
+interface FolderSkill {
+  readonly entry: string
+  readonly name: string
+  readonly path: string
 }
 
 const PROBLEM: Record<SkillFrontmatterProblem, NorthSkillProblem> = {
@@ -47,25 +61,26 @@ export function readSkillSummary(raw: string): NorthSkillSummary | { readonly pr
   return { name, description, invocation }
 }
 
-function classify(entry: string, raw: string): NorthSkillSummary | NorthSkillInvalidEntry {
+function classify(entry: string, path: string, raw: string): FolderSkill | NorthSkillInvalidEntry {
   const summary = readSkillSummary(raw)
-  return 'problem' in summary ? { entry, problem: summary.problem } : summary
+  return 'problem' in summary ? { entry, problem: summary.problem } : { entry, name: summary.name, path }
 }
 
 /** Classify one top-level user-folder entry the way the filesystem skill provider discovers it. */
-async function classifyEntry(path: string, entry: string, info: Stats): Promise<NorthSkillSummary | NorthSkillInvalidEntry | undefined> {
+async function classifyEntry(path: string, entry: string, info: Stats): Promise<FolderSkill | NorthSkillInvalidEntry | undefined> {
   if (info.isDirectory()) {
+    const file = join(path, 'SKILL.md')
     let raw: string
     try {
-      raw = await readFile(join(path, 'SKILL.md'), 'utf8')
+      raw = await readFile(file, 'utf8')
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       return { entry, problem: 'missing-skill-md' }
     }
-    return classify(entry, raw)
+    return classify(entry, file, raw)
   }
   if (!info.isFile() || !entry.endsWith('.md')) return undefined
-  return classify(entry, await readFile(path, 'utf8'))
+  return classify(entry, path, await readFile(path, 'utf8'))
 }
 
 /**
@@ -75,7 +90,7 @@ async function classifyEntry(path: string, entry: string, info: Stats): Promise<
  * its extension is neither empty nor `.md`, since the provider never reads
  * such a file as a skill.
  */
-async function readEntry(root: string, entry: string): Promise<NorthSkillSummary | NorthSkillInvalidEntry | undefined> {
+async function readEntry(root: string, entry: string): Promise<FolderSkill | NorthSkillInvalidEntry | undefined> {
   const path = join(root, entry)
   let info: Stats
   try {
@@ -93,29 +108,79 @@ async function readEntry(root: string, entry: string): Promise<NorthSkillSummary
   }
 }
 
+/** Canonical path for comparing a registry path with a folder file; an unresolvable path compares as written. */
+async function canonical(path: string): Promise<string> {
+  try {
+    return await realpath(path)
+  } catch (_error: unknown) {
+    // A path that cannot be resolved cannot name the same existing file; compare its text.
+    return path
+  }
+}
+
+function effectiveRow(skill: SkillSummary): NorthEffectiveSkill {
+  const { name, description, invocation, source, provider, path } = skill
+  return { name, description, invocation, source, provider, ...path === undefined ? {} : { path } }
+}
+
 /**
  * Build the route snapshot, creating the user folder when it does not exist yet.
- * @param paths - Bundled assets and the user folder.
- * @returns Bundled skills, usable user skills, and unusable user entries.
- * @throws when a bundled skill or the user folder itself cannot be read; per-entry filesystem failures are rows of `invalid`.
+ * @param paths - The user folder.
+ * @param catalog - Reads the registry view to list; see {@link readDefaultCatalog}.
+ * @returns The effective catalog plus the user folder's unusable and overridden entries.
+ * @throws when the catalog or the user folder itself cannot be read; per-entry filesystem failures are rows of `invalid`.
  */
-export async function readNorthSkills(paths: NorthSkillFolderPaths): Promise<NorthSkillsSnapshot> {
-  const bundled = await Promise.all(paths.bundledNames.map(async (name) => {
-    const summary = readSkillSummary(await readFile(join(paths.assetRoot, name, 'SKILL.md'), 'utf8'))
-    if ('problem' in summary) throw new Error(`skill-north-writing: bundled skill ${name} is not a usable skill (${summary.problem})`)
-    return summary
-  }))
+export async function readNorthSkills(
+  paths: NorthSkillFolderPaths, catalog: () => Promise<SkillCatalogSnapshot>,
+): Promise<NorthSkillsSnapshot> {
+  const { skills, complete } = await catalog()
+  const effective = skills.map(effectiveRow)
   await mkdir(paths.userSkillRoot, { recursive: true })
-  const entries = (await readdir(paths.userSkillRoot)).filter(entry => !entry.startsWith('.')).sort()
-  const folder: NorthSkillSummary[] = []
+  // The provider skips `.system` in its user DSH root and reads every other entry, dotfiles included.
+  const entries = (await readdir(paths.userSkillRoot)).filter(entry => entry !== '.system').sort()
   const invalid: NorthSkillInvalidEntry[] = []
+  const inactive: NorthSkillInactiveEntry[] = []
   for (const result of await Promise.all(entries.map(entry => readEntry(paths.userSkillRoot, entry)))) {
     if (result === undefined) continue
-    if ('problem' in result) invalid.push(result)
-    else folder.push(result)
+    if ('problem' in result) {
+      invalid.push(result)
+      continue
+    }
+    const winner = effective.find(skill => skill.name === result.name)
+    if (winner?.path !== undefined && await canonical(winner.path) === await canonical(result.path)) continue
+    if (winner === undefined) {
+      inactive.push({ entry: result.entry, name: result.name })
+      continue
+    }
+    const { source, provider, path } = winner
+    inactive.push({ entry: result.entry, name: result.name, winner: { source, provider, ...path === undefined ? {} : { path } } })
   }
-  folder.sort((a, b) => a.name.localeCompare(b.name))
-  return { directory: paths.userSkillRoot, bundled, folder, invalid }
+  return { directory: paths.userSkillRoot, effective, complete, invalid, inactive }
+}
+
+/**
+ * Read the registry view a new Session gets in the default working directory
+ * with the default agent preset — the same `ctx.skills` call the Session
+ * skill catalog makes for a Session without a live Agent, before it keeps the
+ * user-invocable rows for the `/` menu.
+ * @param ctx - Context carrying `skills` and, when mounted, `workingDirectory` and `agentPresets`.
+ * @returns The sorted winning summaries and discovery completeness.
+ */
+export async function readDefaultCatalog(ctx: Context): Promise<SkillCatalogSnapshot> {
+  const workingDirectory = ctx.get('workingDirectory') as DefaultWorkingDirectory | undefined
+  const presets = ctx.get('agentPresets') as PresetScopes | undefined
+  let lease: Awaited<ReturnType<PresetScopes['acquireScope']>> | undefined
+  try {
+    lease = await presets?.acquireScope()
+  } catch (_error: unknown) {
+    // As in the Session skill catalog, an unusable default preset falls back to the global registry view.
+    lease = undefined
+  }
+  await using _lease = lease
+  return await ctx.skills.snapshot({
+    ...workingDirectory === undefined ? {} : { cwd: workingDirectory.defaultDirectory },
+    ...lease === undefined ? {} : { scope: lease.key },
+  })
 }
 
 function sendJson(res: ServerResponse, status: number, payload: unknown): void {
@@ -127,8 +192,8 @@ function sendJson(res: ServerResponse, status: number, payload: unknown): void {
 
 /**
  * Serve `GET /north-skills` behind the connection's trust and authentication checks.
- * @param ctx - Scope holding the `webServer` and `connection` services.
- * @param paths - Bundled assets and the user folder.
+ * @param ctx - Scope holding the `webServer`, `connection`, and `skills` services.
+ * @param paths - The user folder.
  */
 export function registerNorthSkillsRoute(ctx: Context, paths: NorthSkillFolderPaths): void {
   const connection = Reflect.get(ctx, 'connection') as NorthSkillsConnection
@@ -148,7 +213,7 @@ export function registerNorthSkillsRoute(ctx: Context, paths: NorthSkillFolderPa
         return
       }
       try {
-        sendJson(res, 200, await readNorthSkills(paths))
+        sendJson(res, 200, await readNorthSkills(paths, () => readDefaultCatalog(ctx)))
       } catch (error) {
         ctx.logger.warn(`skill-north-writing: skills listing failed: ${String(error)}`)
         const failure: NorthSkillsFailure = { code: 'unreadable', message: String(error), directory: paths.userSkillRoot }

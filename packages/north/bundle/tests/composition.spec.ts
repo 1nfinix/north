@@ -76,6 +76,12 @@ describe('North bundle layer', () => {
     expect(sidebar?.config).toEqual({ tabsEnabled: { 'terminal-bottom': false } })
   })
 
+  it('mounts no plugin page: neither the manager, the Settings plugins section, nor its inventory tab', () => {
+    for (const id of ['ui-plugin-manager', 'ui-settings-plugins', 'ui-settings-plugin-inventory']) {
+      expect(targeted.get(id)?.disabled, id).toBe(true)
+    }
+  })
+
   it('routes the default model to the LAN provider', () => {
     expect(targeted.get('agent-default-model')?.config).toMatchObject({ provider: 'north-lan' })
     const pi = targeted.get('llm-pi-ai')?.config as { providers: Record<string, { api: string; apiKeyEnv: string }> }

@@ -1,4 +1,4 @@
-/* Skills section: folder card, then the added, unusable, and built-in skill lists. */
+/* Skills section: folder card, then the skills in effect and the folder diagnostics. */
 
 .section {
   display: flex;
@@ -11,7 +11,7 @@
 .heading {
   margin: 0;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .subheading {
@@ -53,6 +53,11 @@
   gap: 8px;
 }
 
+.group {
+  display: flex;
+  flex-direction: column;
+}
+
 .list {
   display: flex;
   flex-direction: column;
@@ -85,6 +90,11 @@
   font-family: var(--ds-font-family-code);
   font-size: 12px;
   color: var(--dsw-alias-label-secondary);
+}
+
+.source {
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .policy {

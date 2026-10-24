@@ -7,13 +7,13 @@ import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { BUNDLED_SKILL_RANK, type SkillCandidate, type SkillProvider } from '@deepseek-ai/dsh-skill'
-import { parse as parseYaml } from 'yaml'
+import { parseSkillFrontmatter, type SkillFrontmatter } from '@deepseek-ai/dsh-skill-filesystem'
 import { registerNorthSkillsRoute } from './folder.ts'
-import { SKILL_NAMES } from './shared.ts'
+import { NORTH_WRITING_PROVIDER, SKILL_NAMES } from './shared.ts'
 
 export type * from './shared.ts'
 
-export { SKILL_NAMES }
+export { NORTH_WRITING_PROVIDER, SKILL_NAMES }
 
 /** Writing skill resource location and the user skill folder the settings section lists. */
 export interface Config {
@@ -37,16 +37,18 @@ export const name = 'skill-north-writing'
 /** Registry used by the bundled provider. */
 export const inject = ['skills']
 
-const PROVIDER = 'north-writing'
-
-function parseSkill(raw: string, path: string): { description: string; content: string } {
-  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u.exec(raw)
-  if (frontmatter?.[1] === undefined) throw new Error(`skill-north-writing: ${path} has no YAML frontmatter`)
-  const metadata: unknown = parseYaml(frontmatter[1])
-  const description = typeof metadata === 'object' && metadata !== null && 'description' in metadata
-    ? metadata.description : undefined
-  if (typeof description !== 'string' || description.length === 0) throw new Error(`skill-north-writing: ${path} has no description`)
-  return { description, content: raw.slice(frontmatter[0].length).trim() }
+/**
+ * Parse one bundled skill with the filesystem skill provider's rules, the
+ * same rules the settings section applies to user skills.
+ * @throws when the file breaks a rule or declares a name other than its folder.
+ */
+function parseSkill(raw: string, path: string, folder: string): { frontmatter: SkillFrontmatter; content: string } {
+  const parsed = parseSkillFrontmatter(raw)
+  if (!parsed.ok) throw new Error(`skill-north-writing: ${path}: ${parsed.message}`)
+  if (parsed.frontmatter.name !== folder) {
+    throw new Error(`skill-north-writing: ${path} declares name "${parsed.frontmatter.name}"; it must match its folder "${folder}"`)
+  }
+  return { frontmatter: parsed.frontmatter, content: parsed.body.trim() }
 }
 
 /**
@@ -61,27 +63,28 @@ export function apply(ctx: Context, config: Config = {}): void {
   if (userSkillRoot !== undefined) {
     if (!isAbsolute(userSkillRoot)) throw new Error('skill-north-writing: userSkillRoot must be an absolute directory')
     ctx.inject(['webServer', 'connection'], (scope) => {
-      registerNorthSkillsRoute(scope, { assetRoot, bundledNames: SKILL_NAMES, userSkillRoot })
+      registerNorthSkillsRoute(scope, { userSkillRoot })
     })
   }
   const candidates: SkillCandidate[] = SKILL_NAMES.map((skillName) => {
     const directory = join(assetRoot, skillName)
     const path = join(directory, 'SKILL.md')
-    const { description } = parseSkill(readFileSync(path, 'utf8'), path)
+    const { name: _name, metadata, ...frontmatter } = parseSkill(readFileSync(path, 'utf8'), path, skillName).frontmatter
     return {
-      name: skillName, description,
-      invocation: { modelInvocable: true, userInvocable: true },
-      provider: PROVIDER, source: 'bundled', rank: BUNDLED_SKILL_RANK,
+      name: skillName, ...frontmatter,
+      provider: NORTH_WRITING_PROVIDER, source: 'bundled', rank: BUNDLED_SKILL_RANK,
       resourceBase: { kind: 'directory', path: directory.split(sep).join('/') }, locator: path,
+      ...metadata === undefined ? {} : { metadata },
     }
   })
   const provider: SkillProvider = {
-    name: PROVIDER,
+    name: NORTH_WRITING_PROVIDER,
     list: () => Promise.resolve(candidates),
     async get(candidate, options) {
       const { rank: _rank, locator, ...summary } = candidate
       const raw = await readFile(locator as string, { encoding: 'utf8', signal: options.signal })
-      return { ...summary, content: parseSkill(raw, locator as string).content }
+      const { frontmatter, content } = parseSkill(raw, locator as string, candidate.name)
+      return { ...summary, invocation: frontmatter.invocation, content }
     },
   }
   ctx.skills.registerProvider(() => provider)

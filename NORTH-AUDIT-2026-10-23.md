@@ -283,3 +283,120 @@ Web 端到端（`pnpm run build` 后运行 `vitest.web.config.ts`，已去掉 `D
 仍未处理：`welcome-flow` 真实 API 失败、运行期告警没有输出去处（仓库层面现状），以及 Windows 安装验证。
 
 2026-10-23 维护者人工审核批准：`parseSkillFrontmatter` 已登记到 `SAFE_HOST_DEPENDENCY_EXPORTS`，`verify-package-dependencies` 通过。上表中「未处理」一项至此关闭。
+
+## 架构、代码、视觉与功能复审（2026-10-23 第五轮追加）
+
+本轮以当前 `north` 分支为准；复审开始时 `HEAD` 与 `origin/north` 一致，工作区无未提交改动。相对 `origin/master`，North 分支共有 221 个文件变化（新增 5785 行、删除 529 行）。复审覆盖 North 包及其上游技能提供者、完整 Web 组合、设置页与 `/` 菜单、相关单元和发行版测试，以及远端 North CI；没有修改产品代码或运行配置。
+
+### 结论
+
+North 的总体分层成立：发行版通过 bundle 组合基础能力，品牌、技能设置和配置包职责分开，没有修改 agent loop，也没有在本轮检查的 North 插件中发现 Cordis 生命周期 P0 问题。之前的「单个坏技能拖垮整个技能页」和「不可手动调用的技能仍显示 `/`」两项狭义故障已经修复。
+
+当前仍不宜把技能设置页描述为「与 Agent 实际加载完全一致」。核心原因是设置页继续独立扫描两个目录，而实际运行时由技能注册表合并项目、用户、兼容目录、自定义根目录和内置来源，并按名称和来源优先级选出最终条目。另有刷新竞态、插件页产品口径不一致、发行版回归未接入 North CI，以及当前远端覆盖率门禁失败。
+
+### 发现
+
+#### F1（高）：技能设置页不是实际生效目录的可靠投影
+
+- 设置路由 `packages/north/skill-writing/src/folder.ts` 会过滤所有以 `.` 开头的条目，只扫描 North 用户目录和 North 内置目录。
+- 实际提供者 `packages/skill/skill-filesystem/src/index.ts` 还会扫描项目 `.dsh/skills`、项目 `.agents/skills`、自定义根目录、用户 `.agents/skills` 等来源；用户 DSH 目录只排除 `.system`，不会排除所有点文件。
+- 实际技能注册表会按名称和来源优先级去重，设置路由却把独立扫描结果全部返回，且没有保留足以解释胜出和被覆盖关系的来源身份。
+- North 内置技能提供者只解析描述，并把 `modelInvocable`、`userInvocable` 固定为 `true`；设置路由使用通用 frontmatter 解析器。因此内置技能一旦增加调用限制，运行时与页面会再次分歧。
+
+现场证据：隔离 `DSH_HOME` 启动完整 North Web 后，设置页显示「没有添加技能」，但 `/` 菜单仍列出本机 `~/.agents/skills` 的大量技能。三个直接语义探针还分别证明：有效的 `.hidden.md` 被实际提供者加载但设置页遗漏；两个文件声明同名技能时注册表只保留优先项而页面显示两个；临时把内置技能设为 `user-invocable: false` 后，实际 North 提供者仍返回 `true`，页面返回 `false`。
+
+建议让设置页从 `ctx.skills` 读取当前上下文解析后的胜出条目，并单独显示可编辑 North 文件夹的诊断信息。若暂时不能接入注册表，应把页面更名为「North 技能文件夹」，明确它不是完整生效目录，并复用实际提供者的发现和优先级规则。回归需覆盖项目来源、`.agents` 兼容来源、自定义根目录、点文件、同名覆盖和内置调用属性。
+
+#### F2（中）：并发刷新可能让旧结果覆盖新结果
+
+`packages/north/skill-writing/src/client/SkillsSection.tsx` 的 `reload()` 只在 effect 清理时取消首次请求；按钮触发的请求不会使用返回的清理函数，刷新期间按钮也保持可用。若两次刷新并发，后完成的旧请求可以覆盖较新的成功结果，旧失败也可以在新成功后重新显示错误。现有客户端测试只覆盖顺序刷新。
+
+建议使用递增请求序号或 `AbortController`，只允许最后一次请求提交状态，并用可控 Promise 写确定性竞态测试。
+
+#### F3（中）：产品文档声称没有插件页，但发行版仍显示「内置插件」
+
+`NORTH.md` 写明 North 没有终端和插件页；North 配置确实禁用了插件管理器和 Cordis 检查页，但上游 `ui-settings-plugins` 仍启用。完整组合现场进入「设置 → 内置插件」后，可以看到可搜索的只读插件清单。
+
+需要明确产品决定：若要求完全没有插件页，应禁用该设置项；若只要求隐藏安装和管理能力，应把文档改为「保留只读内置插件清单」，并增加完整组合回归。当前页面是只读清单，本轮没有把它判为安全漏洞。
+
+#### F4（中）：North CI 没有运行新增的发行版 Web 回归
+
+`.github/workflows/north-ci.yml` 只运行 static、coverage 和 Windows blocking gates；`apps/web/tests/north-distribution.e2e.ts` 与 `north-theme.e2e.ts` 所属的 expected/Web 测试没有进入这些聚合门槛。本地 `test:expected` 的 20 个文件、122 项测试全部通过，但未来推送可以在 North 发行版界面回归时仍通过 North CI。
+
+建议在 North CI 的构建产物准备完成后运行这两项发行版测试，或接入包含它们的窄测试门槛，避免引入与 North 无关的完整浏览器矩阵。
+
+#### F5（中）：当前远端 North CI 为红色，属于并发负载下的超时脆弱性
+
+North CI run `39969683866` 中，Windows build（5 分 51 秒）和 static（7 分 35 秒）通过；coverage 在 30 分 28 秒后失败。失败不是覆盖率百分比不足，而是两个测试超时：Python PTC 的宽完成值用例得到 timeout，`scripts/persistence-epoch-header.spec.ts` 达到 60 秒上限。两项在本机单独复跑均通过，分别约 29 秒和 6 秒，因此现有证据更支持覆盖率分区高负载下的测试可靠性问题，不能据此认定产品功能回归。发布门禁仍然是失败状态，不能报告为 CI 全绿。
+
+#### F6（低）：两处 North 自定义界面没有遵循仓库的客户端样式约定
+
+`packages/north/skill-writing/src/client/SkillsSection.module.css` 的标题使用 600 字重；`packages/north/ui-brand/src/client/Brand.tsx` 用静态内联样式并使用 600 字重。仓库客户端规则要求功能样式最高 500，静态样式放入 CSS Modules。该问题没有造成可见故障，但会增加主题和视觉层级漂移。
+
+### 视觉与功能评价
+
+现有浅色、深色、800px 窄窗口和 Desktop 截图未见溢出、遮挡、乱码或明显对比度问题；品牌、发送按钮、focus 状态和小尺寸图标可读性良好。完整 Web 组合中的通用设置、模型、技能、侧边卡片和四个预装侧栏标签均可打开。视觉层面没有发现新的阻断项，主要剩余问题是上述样式约定偏差与插件清单的产品口径。
+
+North 明确禁用公开网络提供者但保留标准 preset 的 Web 工具；用户切到标准 preset 时会看到不可用工具。文档已经披露此行为，本轮把它保留为产品体验债务。预装第三方 `dsh-better-sidebar@0.28.0` 仍是能访问操作系统文件的信任边界；本轮核对了组合与界面，没有对该依赖做完整源码安全审计。
+
+### 本轮验证
+
+- North、技能文件系统、Desktop 启动与策略、构建环境、产品使用和仓库引用相关测试：13 个文件、283 项通过。
+- `test:expected`：20 个文件、122 项通过，包含 North 发行版和主题回归。
+- Python PTC 失败用例单独复跑：1 项通过，约 29 秒；持久化头部测试单独复跑：1 项通过，约 6 秒。
+- `git diff origin/master..HEAD --check` 通过；复审开始时工作区干净，本轮只追加本审计文档。
+
+本轮没有重新验证 Windows 安装与缩放、Electron 更新、真实内网 vLLM、当前提交上的真实 Office 生成、完整第三方侧栏源码安全，以及不经代理的外连目标。远端 CI 当前不是全绿。
+
+## F1–F6 修复结果（2026-10-24 第六轮追加）
+
+本节由修复会话追加，上文各轮结论保持不变。工作区改动未提交、未推送、未发布，也没有安装新依赖。每项都先写失败测试或复现方法，再修改实现。
+
+### F1：技能页改为读取注册表的最终结果
+
+- 根因：设置接口自己遍历两个目录，跳过所有点文件，不知道项目、`.agents`、自定义根目录等来源，也不做同名去重；North 内置技能提供者把调用属性固定为 `true`。
+- 修复：`GET /north-skills` 改为调用 `ctx.skills.snapshot({ cwd, scope })`。`cwd` 取默认工作目录，`scope` 取默认 Agent 预设，与会话技能目录为没有运行中 Agent 的会话读取的视图相同，`/` 菜单再从中保留允许用户调用的条目。响应的 `effective` 每行带 `source`、`provider`、`path` 和 `invocation`，另有 `complete`。技能文件夹诊断与之分开：`invalid` 是提供者会跳过的条目；`inactive` 是可用但没有解析到自身文件的技能，带胜出来源 `winner`，没有任何来源解析出该名称时不带。诊断按提供者在用户 DSH 根目录的规则只跳过 `.system`，其他点文件照常读取。内置提供者改用 `parseSkillFrontmatter` 解析描述和调用属性，名称与所在文件夹不一致时激活失败。注册表现有接口已足够，技能能力层没有新增接口。
+- 页面：设置页依次显示文件夹卡片、「当前生效的技能」（每行标出来源，只有允许用户调用的技能显示为 `/名称`）和「技能文件夹中的问题」。被覆盖的条目只出现在问题区。发现不完整时显示提示。
+- 修复前失败：`route.spec.ts` 新增的 6 个用例因响应没有 `effective`、`complete`、`inactive` 而失败；`skill-writing.spec.ts` 中「内置技能读取 frontmatter 调用属性」得到 `modelInvocable: true`，期望 `false`。负向对照：把文件夹过滤改回「跳过所有点文件」后，`.broken.md` 诊断用例失败。
+- 修复后：skill-writing 5 个文件 40 项通过。`north-distribution.e2e.ts` 在完整 North 组合中预置了项目 `.dsh/skills`、`~/.agents/skills`、技能文件夹（含点文件 `.dotted.md`、同名覆盖 `dup.md`、`user-invocable: false` 和失效链接），断言设置页的 `/` 命令与新会话 `/` 菜单的技能项数量相同且逐项对应。
+- 新发现，未修：技能文件夹里有一个名为 `SKILL.md` 的目录时，文件系统提供者整次发现失败，所有来源的文件系统技能都从注册表消失（`complete: false`），`/` 菜单同样受影响；失效符号链接不会这样。这属于上游提供者，超出 F1–F6 范围，本轮没有修改。设置页会如实显示不完整提示，并把文件夹中的可用技能列为「未加载」；`route.spec.ts` 用例「reports incomplete discovery and unloaded folder skills…」固定了这一行为。
+
+### F2：并发刷新只提交最近一次结果
+
+- 根因：按钮发起的刷新没有取消，较早的请求晚到后会覆盖较新的结果或错误。
+- 修复：`SkillsSection.tsx` 使用递增请求序号，只有序号仍是最新的请求才能提交；卸载或 `load` 身份变化时序号前进，所有在途请求失效。
+- 修复前失败：在保持旧 `reload()` 的情况下，「旧成功晚到」用例在旧请求完成后失败（第 252 行，`/newest` 被替换），「旧失败晚到」用例显示了过期的 `alert`。修复后 section 测试 16 项全部通过，包括刷新后卸载、首次失败、刷新失败保留旧结果，以及恢复后清除提示。
+
+### F3：North 不显示插件页
+
+- 修复：North 配置包禁用 `ui-settings-plugins` 及只在该分区内渲染的 `ui-settings-plugin-inventory`。只改 North 层，其他发行版不受影响。四个 `plugins.item` 配套页只由已禁用的 `ui-plugin-manager` 渲染，本来就不可达，没有改动。
+- 证据：组合测试新增用例，修改配置前失败，修改后通过。完整组合 e2e 断言设置中没有「内置插件」，页面上也没有任何「终端」文字。两项负向对照：恢复 `ui-settings-plugins` 后第 79 行失败；打开侧栏底部终端页后第 73 行失败。仅启用 `ui-sidebar-terminal` 的对照因启动阶段报错先在标题断言处失败，不能单独证明终端断言，因此改用侧栏终端页对照。中英文 README 和 `NORTH.md` 已同步。
+
+### F4：North Web 回归接入 North CI
+
+- 修复：`scripts/run-gates.ts` 新增 `ci-north-web` 聚合，先运行 `build:artifacts`，再以 `DSH_SNAPSHOT=replay` 运行 `test:web:north`（只包含 `north-distribution.e2e.ts` 和 `north-theme.e2e.ts`），后者显式声明 `needs: ['build']`。`north-ci.yml` 新增 `north-web` 任务，只安装 Chromium。
+- 证据：新增 `scripts/north-ci-workflow.spec.ts`，修改前两项都失败（没有该任务、没有该脚本），修改后通过，与 `run-gates.spec.ts`、`ci-workflow.spec.ts` 合计 210 项通过。本地 `pnpm run check:ci:north-web` 2 个门禁通过；直接运行 `test:web:north` 2 个文件、2 项通过。远端尚未运行，因为本轮没有推送。
+
+### F5：覆盖率分区下的两个超时
+
+- Python PTC 宽完成值用例。根因是运行时本身每个元素的开销：检查和编码 600 万元素时，每个元素都要压入、弹出两次栈帧，并调用一次 `json.dumps`，本机仅 Python 部分就要 28.6 秒，而运行时墙钟上限是 60 秒。复现方法：用 20 个忙循环让 10 核机器负载翻倍后运行该用例，得到与 CI 相同的 `kind: 'timeout'`（60.7 秒）。修复在 `py/bootstrap.py`：游标内直接处理标量子元素，只在遇到容器时入栈；`_dump_scalar` 对精确 `int`、`bool`、`None` 直接格式化（`json.dumps` 对精确整数同样调用 `int.__repr__`）。内存仍是 O(深度)。用 20000 个随机嵌套值、三种预算与原实现做差分对比，检查结果和编码字节零差异；覆盖子类、元组、集合、环、NaN、±inf、-0.0、2^53 附近和 10^400 的整数，以及代理对和合并后重复的键。中途曾用异常传递拒绝结果，被「重新绑定 Exception 和 setattr」用例发现（程序与引导脚本共享模块全局），已改为返回值。结果：Python 部分 28.6 秒降到约 4 秒；用例空闲时 4.7 秒，负载翻倍时 12.5 秒通过。超时、重试和断言均未改，只把测试注释里的耗时说明更新为现状。PTC 全套 322 项通过；另有 2 项在原实现上同样失败，原因是本机 pyenv 泄漏的环境变量，去掉 pyenv 后通过。
+- `scripts/persistence-epoch-header.spec.ts`。根因是为读取一个请求头节点，用 `skipLibCheck: false` 编译全部 Host 源码（空闲约 6 秒），与其他分区的同类全仓编译同时运行时会超过 60 秒。复现方法：4 个带覆盖率插桩的单 worker 进程同时运行 4 个全仓编译测试，再加 20 个忙循环，该用例测试耗时 79.9 秒并失败。修复：改读已提交的 `docs/persistence-schema.json`，用同一个 `parsePersistenceSnapshot` 解析。它与重新提取的结果是否一致由 `verify-persistence-changes` 检查，该检查在 North CI 的 static 聚合中运行（本地 static 结果中为 `PASS persistence type history`）。断言不变。修复后测试耗时 84 毫秒；同一并发复现下 391 毫秒通过。
+- 覆盖率门禁：按 North CI 设置（`DSH_COVERAGE_PARTITIONS=3`、`DSH_COVERAGE_MAX_WORKERS=4`、`DSH_COVERAGE_TEST_TIMEOUT_MS=90000`、fail-fast，去掉 pyenv）在本机运行 `check:ci:coverage`，两项原 CI 失败都通过（宽完成值 5.5 秒，epoch-header 110 毫秒），整体以 4 项失败结束（共 43000 项，42782 项通过）：`spawn-runner` 的 Windows 可执行文件解析、`plugin-market-generator` 的 git、`worktree` 的检出配置在本机空闲单独运行也失败，所在文件本轮没有改动，远端 run `39969683866` 的覆盖率任务也没有报告它们；`login-shell-environment` 单独运行通过，属于本机负载下的偶发失败。因此本机覆盖率门禁不是全绿，与 CI 一致的结论只能等推送后由远端运行给出。
+- 残余风险：在比 CI 更重的复现负载下，`persistence-schema.spec.ts` 和 `plugin-record-catalog.spec.ts` 修复前后都有失败，空闲时全部通过，CI 也未报告。它们同样依赖全仓编译，本轮没有处理。
+
+### F6：样式规范
+
+- 修复：`Brand.tsx` 的静态内联样式移到新建的 `Brand.module.css`（另新增 `src/css-modules.d.ts`），产品名字重由 600 改为 500；`SkillsSection.module.css` 的标题由 600 改为 500。图标尺寸仍作为运行时属性传入。
+- 证据：新增 `ui-brand/tests/stylesheet.client.spec.tsx`，修改前 3 项失败（内联 `font-weight: 600`、样式文件不存在、技能页 600），修改后通过。
+
+### 运行中的 Web 检查
+
+用 North 完整组合（隔离的 `DSH_HOME`、`DSH_AGENTS_HOME`，占位 `NORTH_LLM_API_KEY`，未发送模型请求）检查：设置导航为「通用设置、模型、Agent 预设、技能、侧边卡片」，没有「内置插件」。技能页按来源列出仓库自身的 `.agents/skills`、技能文件夹、`~/.agents/skills` 和内置技能；用户的 `weekly-report.md` 覆盖内置周报，`a-twin.md` 胜出，`b-twin.md`、失效链接和缺少 `SKILL.md` 的目录列在问题区。浅色、深色和 800px 宽度下没有溢出或遮挡，长路径正常换行，描述两行截断。键盘 Tab 到「刷新」时 `:focus-visible` 为真、`outline` 为 `auto 2px`，但缩放截图中焦点环不明显。侧栏品牌名 15px、字重 500、无内联样式、不换行，浅深色都清晰；800px 时侧栏收起，只显示 24px 标志。控制台没有错误。
+
+### 本轮验证
+
+`typecheck`、`lint`（仅上游实验包一条既有警告）、`build`（9 个门禁）、`test:docs`、`verify-client-ui-i18n`、`verify-translation-pairing`、`verify-doc-budgets`、`git diff --check` 通过。North、skill、skill-filesystem 与相关门禁测试共 20 个文件、423 项通过；`check:ci:north-web` 通过；本地 `check:ci:static` 64/64 通过。第一次重跑 static 时 `verify-package-dependencies` 失败：F1 改动后内置提供者不再导入 `yaml`，`skill-writing` 的运行时依赖因此失效。已删除该依赖，并用 `pnpm install --lockfile-only --offline` 更新锁文件（删去 3 行，未下载或新增任何包）。
+
+### 仍未验证
+
+Windows 安装与缩放、Electron 打包和更新、真实内网 vLLM、Office 文件生成、Desktop 版技能页、第三方侧栏源码安全、不经代理的外连目标，以及推送后的远端 North CI（含新的 `north-web` 任务）。

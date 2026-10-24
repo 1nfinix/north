@@ -69,7 +69,6 @@
   "dependencies": {
     "@deepseek-ai/dsh-skill": "workspace:*",
     "@deepseek-ai/dsh-skill-filesystem": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~",
-    "yaml": "^2.4.2"
+    "@deepseek-ai/schemastery": "workspace:~"
   }
 }

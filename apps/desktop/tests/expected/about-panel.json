@@ -1,0 +1,54 @@
+{
+  "darwin:en-US": {
+    "menu": [
+      { "label": "About North", "role": "about" },
+      { "type": "separator" }
+    ],
+    "options": {
+      "applicationName": "North",
+      "applicationVersion": "1.0.0",
+      "version": "",
+      "copyright": "",
+      "iconPath": "<app icon>"
+    }
+  },
+  "darwin:zh-CN": {
+    "menu": [
+      { "label": "关于诺思", "role": "about" },
+      { "type": "separator" }
+    ],
+    "options": {
+      "applicationName": "North",
+      "applicationVersion": "1.0.0",
+      "version": "",
+      "copyright": "",
+      "iconPath": "<app icon>"
+    }
+  },
+  "win32:zh-CN": {
+    "menu": [
+      { "label": "关于诺思" },
+      { "type": "separator" }
+    ],
+    "options": {
+      "applicationName": "North",
+      "applicationVersion": "1.0.0",
+      "version": "",
+      "copyright": "",
+      "iconPath": "<app icon>"
+    }
+  },
+  "win32:en-US": {
+    "menu": [
+      { "label": "About North" },
+      { "type": "separator" }
+    ],
+    "options": {
+      "applicationName": "North",
+      "applicationVersion": "1.0.0",
+      "version": "",
+      "copyright": "",
+      "iconPath": "<app icon>"
+    }
+  }
+}

@@ -1,0 +1,174 @@
+name: North CI
+
+# North is maintained through pushes and pull requests to `north` on a fork without the upstream
+# enterprise or self-hosted runners that ci.yml and ci-master.yml target, so
+# this workflow runs the same gate aggregates on GitHub-hosted runners.
+on:
+  push:
+    branches: [north]
+  pull_request:
+    branches: [north]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PRIMARY_NODE_VERSION: '24'
+  DSH_TELEMETRY_DISABLED: '1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    name: node 24 / static
+    timeout-minutes: 90
+    env:
+      DSH_GATE_FAIL_FAST: '1'
+      # Gates that bind a whole-repository TypeScript Program exceed the 2 GB
+      # default heap of a hosted runner.
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - name: Use runner-owned temporary storage
+        run: echo "TMPDIR=${{ runner.temp }}" >> "$GITHUB_ENV"
+
+      # The archive gate compares against the previous `north` tip.
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Redirect Node compile cache to runner temp
+        run: echo "NODE_COMPILE_CACHE=${{ runner.temp }}/node-compile-cache" >> "$GITHUB_ENV"
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.PRIMARY_NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install (immutable)
+        run: pnpm install --frozen-lockfile
+
+      - name: Run static gates
+        env:
+          DSH_ARCHIVE_BASE_REF: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000' && github.event.before || 'HEAD' }}
+        run: pnpm run check:ci:static
+
+  coverage:
+    runs-on: ubuntu-latest
+    name: node 24 / coverage
+    timeout-minutes: 180
+    env:
+      DSH_COVERAGE_TEST_TIMEOUT_MS: '90000'
+      DSH_GATE_FAIL_FAST: '1'
+    steps:
+      - name: Use runner-owned temporary storage
+        run: echo "TMPDIR=${{ runner.temp }}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Redirect Node compile cache to runner temp
+        run: echo "NODE_COMPILE_CACHE=${{ runner.temp }}/node-compile-cache" >> "$GITHUB_ENV"
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.PRIMARY_NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies and prepare bubblewrap
+        run: |
+          pnpm install --frozen-lockfile
+          bash scripts/prepare-ci-bubblewrap.sh
+
+      - name: Run exhaustive coverage
+        run: pnpm run check:ci:coverage
+
+  # The complete North composition in a real browser: the distribution and theme
+  # regressions replay against the Web build their aggregate writes first.
+  north-web:
+    runs-on: ubuntu-latest
+    name: node 24 / North Web
+    timeout-minutes: 45
+    env:
+      DSH_GATE_FAIL_FAST: '1'
+    steps:
+      - name: Use runner-owned temporary storage
+        run: echo "TMPDIR=${{ runner.temp }}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Redirect Node compile cache to runner temp
+        run: echo "NODE_COMPILE_CACHE=${{ runner.temp }}/node-compile-cache" >> "$GITHUB_ENV"
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.PRIMARY_NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install (immutable)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install --with-deps chromium
+
+      - name: Prepare Office Python for PowerPoint scripts
+        run: pnpm run prepare:primary-runtime --target linux-x64 --python-only --output "$RUNNER_TEMP/north-ppt-runtime"
+
+      - name: Test PowerPoint scripts with the Office runtime
+        run: DSH_PRIMARY_RUNTIME="$RUNNER_TEMP/north-ppt-runtime/primary-runtime" pnpm exec vitest run packages/north/skill-writing/tests/ppt-report.spec.ts
+
+      - name: Run North Web regressions
+        run: pnpm run check:ci:north-web
+
+  # North ships to Windows desktops, so the blocking Windows builds run here too.
+  windows-build:
+    runs-on: windows-latest
+    name: windows node 24 / build
+    timeout-minutes: 90
+    env:
+      DSH_GATE_FAIL_FAST: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Enable Developer Mode (symlink support)
+        shell: pwsh
+        run: >-
+          reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
+          /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-js-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.job }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: ${{ env.PRIMARY_NODE_VERSION }}
+
+      - name: Install (immutable)
+        shell: pwsh
+        run: pnpm install --frozen-lockfile
+
+      - name: Run blocking Windows builds
+        shell: pwsh
+        run: pnpm run check:ci:windows-blocking

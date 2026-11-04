@@ -1,0 +1,6 @@
+# Exercise the production North brand row over the shipped Web composition.
+- id: ui-brand-official
+  disabled: true
+- insert:
+    - id: north-brand
+      name: '@deepseek-ai/dsh-north-ui-brand'

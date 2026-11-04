@@ -1,0 +1,224 @@
+# The North bundle patch: brand, LAN and DeepSeek models, office defaults, and the reduced
+# staff surface over dsh-base + dsh-web-app. Applied after both, so the
+# profile's own cordis.patch.yml (Models page edits included) still overrides it.
+#
+# A patch replaces the targeted row's whole `config`, so each row below
+# restates every key it owns.
+
+# ── brand ────────────────────────────────────────────────────────────────────
+
+- id: ui-brand-official
+  disabled: true
+
+- insert:
+    - id: north-brand
+      name: '@deepseek-ai/dsh-north-ui-brand'
+    - id: north-skill-writing
+      name: '@deepseek-ai/dsh-north-skill-writing'
+      config:
+        # The filesystem skill provider's user root; Settings → Skills lists and opens it.
+        userSkillRoot: !!js dshHomePath('skills')
+    # Preinstalled third-party sidebar (file tree, editor, changes, tasks, side
+    # chat, terminal), pinned in package.json; its own bundle layer is not used.
+    - id: better-sidebar
+      name: 'dsh-better-sidebar'
+      config:
+        # Its bottom terminal tab has no backend (terminal-controller is off below).
+        tabsEnabled:
+          terminal-bottom: false
+
+- id: system-prompt
+  config:
+    includeHarnessIdentity: false
+    personaPrefix: >-
+      你是诺思（North）办公助手，由 {{model}} 模型驱动，帮助同事完成文档、表格、演示文稿和日常沟通工作。
+
+- id: harness-dev-context
+  disabled: true
+
+# First use creates <Documents>/North/default-workspace; an existing default Workspace stays where it is.
+- id: workspace-controller
+  config:
+    documentsSubdirectory: North
+
+# ── nothing reports to DeepSeek ──────────────────────────────────────────────
+
+- id: session-telemetry-otel
+  disabled: true
+
+- id: desktop-product-telemetry
+  disabled: true
+
+- id: product-analytics
+  disabled: true
+
+- id: message-feedback
+  disabled: true
+
+- id: ui-message-feedback
+  disabled: true
+
+- id: command-feedback
+  disabled: true
+
+# Session-log sharing settings ("help improve DeepSeek") have no destination here.
+- id: ui-settings-session-log
+  disabled: true
+
+# ── models: two LAN gateways (intranet) and the official DeepSeek API (internet) ──
+# The default LAN provider reads NORTH_LLM_* and the second one NORTH_LLM2_*;
+# Desktop fills both from resources/north.env (see NORTH.md). DeepSeek resolves
+# DEEPSEEK_API_KEY through the credentials service: the Models page, then the
+# launching environment, then .env files.
+
+- id: llm-pi-ai
+  config:
+    providers:
+      north-lan:
+        displayName: !!js process.env.NORTH_LLM_DISPLAY_NAME || '内网模型'
+        api: openai-completions
+        baseURL: !!js process.env.NORTH_LLM_BASE_URL || 'http://127.0.0.1:8000/v1'
+        apiKeyEnv: NORTH_LLM_API_KEY
+        compat:
+          supportsDeveloperRole: false
+          supportsStore: false
+          maxTokensField: max_tokens
+        defaultContextWindow: !!js Number(process.env.NORTH_LLM_CONTEXT_WINDOW || 32768)
+        defaultMaxTokens: !!js Number(process.env.NORTH_LLM_MAX_TOKENS || 8192)
+        models:
+          - id: !!js process.env.NORTH_LLM_MODEL || 'north-default'
+            name: !!js process.env.NORTH_LLM_DISPLAY_NAME || '内网模型'
+      north-lan-2:
+        displayName: !!js process.env.NORTH_LLM2_DISPLAY_NAME || '内网模型 2'
+        api: openai-completions
+        baseURL: !!js process.env.NORTH_LLM2_BASE_URL || 'http://127.0.0.1:8001/v1'
+        apiKeyEnv: NORTH_LLM2_API_KEY
+        compat:
+          supportsDeveloperRole: false
+          supportsStore: false
+          maxTokensField: max_tokens
+        defaultContextWindow: !!js Number(process.env.NORTH_LLM2_CONTEXT_WINDOW || 32768)
+        defaultMaxTokens: !!js Number(process.env.NORTH_LLM2_MAX_TOKENS || 8192)
+        models:
+          - id: !!js process.env.NORTH_LLM2_MODEL || 'north-default-2'
+            name: !!js process.env.NORTH_LLM2_DISPLAY_NAME || '内网模型 2'
+
+# The adapter speaks the Messages protocol, so the endpoint is pinned: an
+# OpenAI-style DEEPSEEK_BASE_URL (…/v1) in the environment would otherwise
+# become the request root.
+- id: llm-deepseek
+  config:
+    baseURL: https://api.deepseek.com/anthropic
+
+# New Sessions use DeepSeek on macOS or when the launching environment carries
+# its key, and the second LAN gateway (MiniMax-M2.7) otherwise; a model saved in Settings wins.
+- id: agent-default-model
+  config:
+    provider: !!js "process.platform === 'darwin' || process.env.DEEPSEEK_API_KEY ? 'deepseek-official' : 'north-lan-2'"
+    model: !!js "process.platform === 'darwin' || process.env.DEEPSEEK_API_KEY ? (process.env.NORTH_DEEPSEEK_MODEL || 'deepseek-v4-pro') : (process.env.NORTH_LLM2_MODEL || 'north-default-2')"
+
+# Account sign-in stays off: the API key is the only DeepSeek credential.
+- id: llm-deepseek-account
+  disabled: true
+
+# ── web: DeepSeek Search and Fetch APIs plus plain public-page fetch ─────────
+# Offline, every web_search and web_fetch call returns an unavailable error.
+# Search costs one API request, not the full model turn web-search-deepseek takes.
+
+- id: web
+  config:
+    searchProvider: deepseek-search-api
+    fetchProvider: http
+
+- id: web-search-deepseek
+  disabled: true
+
+# ── browser: local Playwright MCP tools ──────────────────────────────────────
+# Desktop detects an installed browser at startup; administrators can override
+# NORTH_BROWSER_PATH in north.env. If none is found, only browser tool calls fail.
+
+- insert:
+    - id: browser-use
+      name: '@deepseek-ai/dsh-browser-use'
+    - id: browser-use-playwright
+      name: '@deepseek-ai/dsh-experimental-browser-use-playwright-mcp'
+      config:
+        mode: launch
+        headless: true
+        executablePath: !!js process.env.NORTH_BROWSER_PATH
+
+# It configures web-search-deepseek and lives on the Plugins page, which North removes.
+- id: ui-settings-web-search
+  disabled: true
+
+# Fields added only to official DeepSeek API requests: the Session-log upload and the
+# plugin inventory stay off, so DeepSeek receives only the model request itself.
+- id: session-log-deepseek
+  disabled: true
+
+- id: plugin-package-inventory-deepseek
+  disabled: true
+
+- id: deepseek-llm-api-extensions
+  disabled: true
+
+# ── permissions: no full-access preset and no environment escape hatch ───────
+
+- id: sandbox-policy
+  config:
+    mode: workspace-write
+    workspaceRoot: !!js process.cwd()
+
+- id: approval
+  config:
+    policy: ask
+
+- id: permission
+  config:
+    presets:
+      read-only:
+        sandbox: read-only
+        approval: ask
+      workspace-write:
+        sandbox: workspace-write
+        approval: ask
+
+# ── staff surface: hide the host shell and plugin tooling ────────────────────
+
+- id: ui-sidebar-terminal
+  disabled: true
+
+# The terminal service spawns user shells outside the sandbox and approval
+# policy; without it the preinstalled sidebar's terminal tab has no backend.
+- id: terminal-controller
+  disabled: true
+
+- id: ui-plugin-manager
+  disabled: true
+
+# No plugin page: the Settings → Built-in plugins section and the inventory
+# tab that renders only inside it.
+- id: ui-settings-plugins
+  disabled: true
+
+- id: ui-settings-plugin-inventory
+  disabled: true
+
+- id: ui-cordis
+  disabled: true
+
+- id: ui-settings-account
+  disabled: true
+
+- id: preset-ptc
+  disabled: true
+
+- id: preset-minimal
+  disabled: true
+
+- id: preset-cordis
+  disabled: true
+
+- id: agent-preset-registry
+  config:
+    default: office

@@ -1,0 +1,32 @@
+- region "技能":
+  - heading "技能" [level=2]
+  - paragraph: 这里列出默认工作区中新会话可用的技能，与 / 菜单读取同一份清单。把包含 SKILL.md 的技能文件夹放进下面的技能文件夹即可添加，无需重启。
+  - text: 技能文件夹
+  - code: {{cwd}}/.dsh-home/skills
+  - button "打开文件夹"
+  - button "刷新"
+  - region "当前生效的技能":
+    - heading "当前生效的技能" [level=3]
+    - list:
+      - listitem: audit-hidden 技能文件夹 由助手自动使用，不在 / 菜单中 仅由助手自动使用
+      - listitem: 网页检查 /browser-check 内置 用浏览器打开网页或工作区里的 HTML 文件，截图、读取页面内容、检查排版和交互是否正常；也用于检查自己刚做好的网页或图表。只浏览，不登录、不提交、不下载。
+      - listitem: 图表 /chart 内置 根据表格、数字或文档中的数据制作图表：选择合适的图形，生成离线可打开的交互式 HTML 图表，按需导出 PNG 图片，或在 Excel、PPT 中生成原生图表。
+      - listitem: /dotted 技能文件夹 点文件中的技能
+      - listitem: /dup 项目 .dsh/skills 项目版本胜出
+      - listitem: 邮件起草 /email-draft 内置 起草或润色工作邮件：根据收件人和目的确定正式程度，写出明确的主题行、称呼、正文要点、行动请求和结尾，也可回复或改写已有邮件。
+      - listitem: 网页制作 /frontend-page 内置 制作网页、单页说明、活动页、数据看板或小工具页面：确定视觉方向，写出离线可用的单文件 HTML（样式和脚本内联），用浏览器截图自检后交付。
+      - listitem: /loan-memo 技能文件夹 贷款审查备忘录
+      - listitem: 长文总结 /long-summary 内置 总结长文档、报告、合同、政策或多份资料：给出一句话结论、要点摘要和分章节摘要，标注出处页码或段落，只使用原文信息并标明不确定之处。
+      - listitem: 会议纪要 /meeting-minutes 内置 根据会议录音转写、笔记或聊天记录整理会议纪要：提炼议题、讨论要点、决议和待办事项（负责人与截止日期），去掉口语和重复内容。
+      - listitem: 公文写作 /official-notice 内置 公文写作：起草通知、请示、报告、批复、函、通报、意见、纪要等公文正文，按单位公文规范选择文种、只写正文主体，规范层次序号、引用文号、标点数字、篇幅和附件，并可生成排版合规的 Word 文件。
+      - listitem: 汇报 PPT /ppt-report 内置 制作和修改汇报 PPT：按单位 PPT 模板新做汇报、把已有 PPT 套用模板重新排版、修改已有 PPT、把 Word 材料或 Excel 数据做成 PPT。结论先行，每页一个观点，用模板版式和原生图表生成可编辑的 .pptx 并检查文字溢出。
+      - listitem: /repo-guide 项目 .dsh/skills 项目内的写作约定
+      - listitem: /shared-tool ~/.agents/skills 共享技能
+      - listitem: 技能创建 /skill-creator 内置 创建、修改或改进 North 技能：把一段反复使用的工作流程、写作规范或操作步骤整理成 SKILL.md，检查格式能被加载，保存到技能文件夹后在 / 菜单中使用。用户说「做成技能」「新建技能」「改一下这个技能」时使用。
+      - listitem: 翻译 /translation 内置 翻译工作文档、邮件和资料（中英互译为主）：保持术语一致、保留原文格式和数字，按需给出对照表或术语表；也可翻译 Word、Excel、PPT 文件。
+      - listitem: 周报 /weekly-report 内置 撰写周报、月报或阶段工作汇报：把零散的工作记录整理成「完成情况、进行中、问题与风险、下阶段计划」结构，量化结果并标明需要协调的事项。
+  - region "技能文件夹中的问题":
+    - heading "技能文件夹中的问题" [level=3]
+    - list:
+      - listitem: dangling 无法读取这个条目，例如指向不存在位置的快捷方式。修复或移走后点「刷新」
+      - listitem: dup.md 未使用：同名技能已从以下位置生效 项目 .dsh/skills

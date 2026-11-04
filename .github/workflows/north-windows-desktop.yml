@@ -1,0 +1,121 @@
+name: North Desktop · Windows qualification
+
+# The fork has no `dsh-win-package-trial` runner that windows-package.yml targets, so this
+# workflow qualifies an unsigned Windows build on a GitHub-hosted runner: packaging, the installer UI,
+# the local updater, and installed-app scaling. Evidence is kept as run artifacts; nothing is published.
+# GitHub registers a workflow outside the default branch only through a push trigger, so a push that
+# changes this workflow or its scaling script also runs it; other pushes do not.
+on:
+  workflow_dispatch:
+  push:
+    branches: [north]
+    paths:
+      - .github/workflows/north-windows-desktop.yml
+      - apps/desktop/scripts/north-windows-scaling.mjs
+
+permissions:
+  contents: read
+
+env:
+  DSH_TELEMETRY_DISABLED: '1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    runs-on: windows-latest
+    name: windows x64 / Desktop qualification
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Enable Developer Mode (symlink support)
+        run: >-
+          reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
+          /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Install (immutable)
+        run: |
+          pnpm install --frozen-lockfile
+          exit $LASTEXITCODE
+
+      # Unsigned packaging reads only the application ID; it embeds no update feed or update policy.
+      - name: Write unsigned packaging settings
+        run: Set-Content -Path apps/desktop/.env.windows -Value 'DSH_DESKTOP_APP_ID=com.deepseek.harness' -Encoding utf8
+
+      - name: Write North settings from secret
+        env:
+          NORTH_ENV_CONTENT: ${{ secrets.NORTH_ENV }}
+        run: |
+          if ([string]::IsNullOrEmpty($env:NORTH_ENV_CONTENT)) { throw 'Add NORTH_ENV in repository Settings → Secrets before packaging' }
+          $path = Join-Path $env:RUNNER_TEMP 'north.env'
+          [System.IO.File]::WriteAllText($path, $env:NORTH_ENV_CONTENT)
+          # Every later step that builds the packaging configuration (installer UI, local updater) reads it too.
+          "NORTH_ENV_PATH=$path" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Check packaging configuration and toolchain
+        run: |
+          pnpm run package:desktop:win:x64:unsigned --check
+          exit $LASTEXITCODE
+
+      - name: Build unsigned installer and verify packaged runtime
+        id: package
+        run: |
+          pnpm run package:desktop:win:x64:unsigned
+          exit $LASTEXITCODE
+
+      - name: Installer UI (English and Chinese)
+        if: ${{ !cancelled() }}
+        run: |
+          pnpm --dir apps/desktop run test:installer
+          exit $LASTEXITCODE
+
+      - name: Local updater
+        if: ${{ !cancelled() }}
+        run: |
+          pnpm --dir apps/desktop run test:updates:local
+          exit $LASTEXITCODE
+
+      - name: Installed application at 1x, 1.25x, 1.5x and 2x
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        run: |
+          $installer = Get-ChildItem apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts -Filter *.exe | Select-Object -First 1
+          if ($null -eq $installer) { throw 'no unsigned installer was produced' }
+          node apps/desktop/scripts/north-windows-scaling.mjs $installer.FullName "$env:RUNNER_TEMP/north-scaling"
+          exit $LASTEXITCODE
+
+      - name: Retain qualification evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: north-windows-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/north-scaling/
+            apps/desktop/.desktop-build/installer-tests/
+            apps/desktop/.desktop-build/qualification/
+            apps/desktop/.desktop-build/packaging-runs/
+
+      - name: Retain unsigned installer
+        if: ${{ !cancelled() && steps.package.outcome == 'success' }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: north-windows-x64-unsigned-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          path: apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/*.exe

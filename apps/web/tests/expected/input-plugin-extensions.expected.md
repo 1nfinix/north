@@ -1,0 +1,5 @@
+- textbox "Describe the work to get done, / commands, @ files or sessions":
+  - paragraph: Draft
+- button "Cancel activity"
+- button "Insert result"
+- button "Send message"

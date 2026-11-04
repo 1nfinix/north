@@ -1,0 +1,13 @@
+/* Product name beside the slotted sidebar mark. */
+
+.name {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.localName {
+  margin-inline-start: 6px;
+  font-weight: 500;
+}

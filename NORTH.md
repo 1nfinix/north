@@ -9,7 +9,7 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 
 ## 维护规则
 
-- **不含单位信息**：项目计划开源，定位为通用的 AI 办公工具。仓库内的代码、技能、文档、测试、快照和提交信息都不得出现任何单位名称、地区与机构层级、内网地址与网段、内部系统名称或人员信息；需要举例时用「××」或通用说法。真实配置只放在本机未跟踪的 `north.env` 和 CI secret 中。本机敏感词钩子（`.git/info/north-sensitive-patterns`）和 `verify-north-addresses` 门禁负责拦截。
+- **不含单位信息**：项目计划开源，定位为通用的 AI 办公工具。仓库内的代码、技能、文档、测试、快照和提交信息都不得出现任何单位名称、地区与机构层级、内网地址与网段、内部系统名称或人员信息；需要举例时用「××」或通用说法。部署时真实配置放在每台机器的用户数据目录，不进入公开构建产物。本机敏感词钩子（`.git/info/north-sensitive-patterns`）和 `verify-north-addresses` 门禁负责拦截。
 - **记录每次迭代**：每次迭代合并进 `north` 时，在 [NORTH-CHANGELOG.md](NORTH-CHANGELOG.md) 顶部追加一节，写明日期和新增、变更、修复、安全四类内容。
 
 ## 新增包
@@ -78,13 +78,13 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 **组合接入**
 - `apps/cli/package.json`：依赖 `@deepseek-ai/dsh-north-bundle`。
 - `apps/desktop/src/project-manager.ts`：`DESKTOP_BUNDLES` 在 Web 模板后追加 North 配置包（初始化与恢复都用它）。
-- `apps/desktop/src/north-env.ts`（新文件）与 `apps/desktop/src/main.ts`（`main()` 首行调用 `applyNorthEnvironment`）：数据目录 `~/.north`、关闭遥测、读取 `resources/north.env`、按本机 IP 选择代理、探测已安装浏览器。
+- `apps/desktop/src/north-env.ts`（新文件）与 `apps/desktop/src/main.ts`（`main()` 首行调用 `applyNorthEnvironment`）：数据目录 `~/.north`、关闭遥测，依次从用户数据目录和安装目录读取 `north.env`、按本机 IP 选择代理、探测已安装浏览器。
 - `apps/desktop/resources/north.env.example`（新文件）与未跟踪的 `north.env`；`electron-builder-config.mjs` 的 `extraResources` 从 `north-env-source.mjs` 解析打包来源。
 - `tsconfig.base.json`（手写别名）、`tsconfig.host.json`、`tsconfig.client.json`：登记新包。
 - `packages/north/bundle/cordis.patch.yml` 覆盖的插件 id 都须是上游实际存在的插件；dsh 0.2.2-alpha.2 删除了 `ui-deepseek-model-label-1017`，其禁用行已随之移除。
 
 - `.gitignore`、`apps/desktop/tests/{north-env,north-env-source}.spec.ts`、`scripts/{verify-north-addresses,north-sensitive-hook}{,.spec}.ts`、`package.json`、`scripts/run-gates{,.spec}.ts`、`lefthook.yml`：示例配置、地址门禁与本机敏感词钩子；pre-commit 检查暂存新增行，pre-push 检查待推送提交的新增行与提交信息。
-- `.github/workflows/north-windows-desktop.yml` 与 `scripts/north-ci-workflow.spec.ts`：从 secret 提供打包配置并限制安装包保留时间。
+- `.github/workflows/north-windows-desktop.yml` 与 `scripts/north-ci-workflow.spec.ts`：用仅含注释的配置文件打包，不向安装包写入真实配置，并限制安装包保留时间。
 - `apps/desktop/tests/{installer-packaging,macos-signature,macos-disk-image-signature,shell-file-selection,packaged-runtime-verification,windows-asar-unpack,windows-update-publisher,installed-update-builder}.spec.ts`：测试打包显式允许示例配置。
 - `apps/desktop/README{,.zh}.md` 与 `README.i18n.yaml`：本机配置及打包说明。
 
@@ -156,7 +156,7 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 - 重新生成的文档：`docs/module-graph{,.zh}.md`、`THIRD_PARTY_NOTICES.md`（预装侧栏 `dsh-better-sidebar`、ECharts 与 Anthropic 改编说明）、`docs/config-catalog{,.zh}.md`、`packages/extensions/cordis-client-runner/src/client/{slot-catalog,api-catalog}.ts`、`packages/extensions/tool-cordis/src/api-catalog.ts`、`packages/preset/agent-preset/skills/cordis-composition-reference/references/packages.md`。
 
 **持续集成**
-- `.github/workflows/north-ci.yml`（新文件）：推送到 `north`、向 `north` 开 PR 或手动触发时，在 GitHub 托管机器上运行 `check:ci:static`、`check:ci:coverage`、`check:ci:windows-blocking` 和 `check:ci:north-web`。`north-web` 任务只安装 Chromium。
+- `.github/workflows/north-ci.yml`（新文件）：向 `north` 开 PR 或手动触发时（推送不自动触发，以节省私有仓库的 Actions 免费额度），在 GitHub 托管机器上运行 `check:ci:static`、`check:ci:coverage`、`check:ci:windows-blocking` 和 `check:ci:north-web`。`north-web` 任务只安装 Chromium。
 - `scripts/run-gates.ts` 的 `ci-north-web` 聚合与 `package.json` 的 `check:ci:north-web`、`test:web:north`：先 `build:artifacts`，再以 `DSH_SNAPSHOT=replay` 运行 `north-distribution.e2e.ts` 和 `north-theme.e2e.ts`；`scripts/north-ci-workflow.spec.ts` 校验从工作流到这两个测试文件的完整链路。PR 上的归档门禁与 PR 基准提交比较。static 任务设 `NODE_OPTIONS=--max-old-space-size=6144`：可选依赖导入、文档图等门禁要为整个仓库建 TypeScript 程序，峰值超过托管机器默认的 2 GB 堆上限。上游工作流依赖上游组织的运行机器、secret、Issue 配置或 PyPI 发布，对 North 不适用，已在仓库设置中停用（`gh workflow disable`，不改文件，可用 `gh workflow enable` 恢复）：CI、CI Python、CI Windows、E2E、Build PR preview、Issue lifecycle、Issue policy、weighted-approval、Release (dsh)、Release (vendor)。合并上游后如出现新的上游工作流，同样停用。
 - `.github/workflows/north-windows-desktop.yml`（新文件）：手动触发，或在推送改动了该工作流或其缩放脚本时触发（GitHub 只通过推送触发登记默认分支以外的工作流），在 GitHub 托管的 `windows-latest` 上构建未签名的 win-x64 安装包，再运行 `test:installer`（中英文安装界面）、`test:updates:local`（本地更新流程），以及 `apps/desktop/scripts/north-windows-scaling.mjs`：静默安装后以 1、1.25、1.5、2 倍缩放启动已安装的应用，检查主窗口和技能设置页没有横向溢出、设置对话框不超出窗口，截图后静默卸载。上游的 `windows-package.yml` 依赖本仓库没有的自托管运行机器。证据只作为该次运行的 artifact 保留，不发布、不上传；`scripts/north-ci-workflow.spec.ts` 校验其触发方式、运行机器和步骤顺序。
 
@@ -211,13 +211,13 @@ git merge upstream/master
 
 ## 管理员：模型设置
 
-真实的内网地址只放在本机和 GitHub secret 中，不进仓库。仓库里的 `apps/desktop/resources/north.env.example` 只有示例值（RFC 5737 文档专用地址）：
+真实配置由管理员放在每台机器的 `%USERPROFILE%\.north\north.env`，不进仓库或公开安装包。仓库里的 `apps/desktop/resources/north.env.example` 只有示例值（RFC 5737 文档专用地址）：
 
-- 本机打包：把真实配置放在 `apps/desktop/resources/north.env`（已在 `.gitignore` 中），或用环境变量 `NORTH_ENV_PATH` 指向它。两者都没有时打包失败；只有测试打包可设 `NORTH_ENV_ALLOW_EXAMPLE=1` 改用示例文件。
-- CI 打包：`north-windows-desktop.yml` 从仓库 secret `NORTH_ENV`（真实 `north.env` 全文）写出临时文件。
+- 本机打包：原有打包脚本仍从 `apps/desktop/resources/north.env`（已在 `.gitignore` 中）读取，或从 `NORTH_ENV_PATH` 指向的文件读取。两者都没有时打包失败；测试打包可设 `NORTH_ENV_ALLOW_EXAMPLE=1` 改用示例文件。用真实配置打出的本机安装包不得公开分发。
+- 公开 CI 打包：`north-windows-desktop.yml` 在 `RUNNER_TEMP` 写入只有注释的 `north.env`，通过 `NORTH_ENV_PATH` 交给原有打包脚本；安装包内不含真实配置。
 - 不要把真实地址或网段前缀写进提交、文档、AI 会话或外脑记忆；需要时写「见本机 north.env」。
 
-安装后编辑 `%LOCALAPPDATA%\Programs\North\resources\north.env`，保存后重启 North。各项含义如下（值为示例）：
+安装后把示例文件复制为 `%USERPROFILE%\.north\north.env`，由管理员按需修改，保存后重启 North；该用户文件在升级和重装后保留。安装目录的 `resources\north.env` 随安装包提供，升级会覆盖。启动时的优先级是已有环境变量、用户文件、安装包文件。各项含义如下（值为示例）：
 
 ```
 # 内网模型一（模型选择器中可选）
@@ -244,7 +244,7 @@ NORTH_PROXY_NETWORK=198.51.100.
 # NORTH_BROWSER_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
 ```
 
-- Windows 用户环境变量里的同名变量优先于这个文件。
+- Windows 用户环境变量里的同名变量优先于用户文件和安装包文件。
 - 代理：North 启动时检查本机 IPv4 地址，有以 `NORTH_PROXY_NETWORK` 开头的地址就把 `HTTP_PROXY`/`HTTPS_PROXY` 设为 `NORTH_PROXY`，模型和网页请求都走代理；生产网电脑直连。电脑上已设置 `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` 时以其为准。
 - 浏览器：桌面版在读取 `north.env` 后优先使用已有的 `NORTH_BROWSER_PATH`，否则按系统位置探测 Edge 或 Chrome；Windows 先查系统安装目录，再查用户安装目录，macOS 先查 `/Applications`，再查 `~/Applications`。已安装但仍报找不到浏览器时，在 `north.env` 中设置 `NORTH_BROWSER_PATH` 为程序的完整路径并重启；都找不到时只有浏览器工具调用报错。
 - 内网与互联网两类模型同时提供：macOS 上或启动环境带有 `DEEPSEEK_API_KEY` 时新会话默认使用 DeepSeek（端点固定为 `https://api.deepseek.com/anthropic`），否则默认使用内网模型二 MiniMax-M2.7；没有 key 时模型选择器不列出 DeepSeek。网页搜索走 DeepSeek Search API，抓取走本地 HTTP；断网时这两个工具返回不可用。DeepSeek 账号登录、会话日志上传和插件清单字段保持关闭。macOS 上从 shell 启动或登录 shell 已导出该变量时无需写入此文件。

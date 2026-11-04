@@ -229,9 +229,9 @@ The welcome window follows system appearance with the design’s Platform light/
 
 ## Package
 
-North packages `resources/north.env` from `NORTH_ENV_PATH` when set, otherwise from the local `resources/north.env`. The path must exist. Local settings are ignored by Git; copy `resources/north.env.example` and replace its documentation addresses before a real build. If neither source exists, packaging fails. Qualification builds alone may set `NORTH_ENV_ALLOW_EXAMPLE=1` to package the example.
+North packages `resources/north.env` from `NORTH_ENV_PATH` when set, otherwise from the local `resources/north.env`. The path must exist. Local settings are ignored by Git; copy `resources/north.env.example` and replace its documentation addresses before a local build. If neither source exists, packaging fails. Qualification builds may set `NORTH_ENV_ALLOW_EXAMPLE=1` to package the example. The public Windows workflow supplies a comment-only file through `NORTH_ENV_PATH`; local builds that use real settings must not be distributed publicly.
 
-At startup, North reads `resources/north.env` and keeps an existing `NORTH_BROWSER_PATH` from the environment or that file. Otherwise it checks installed Edge and Chrome executables on Windows, or Chrome and Edge under `/Applications` and `~/Applications` on macOS, and sets the first existing path. Administrators can set `NORTH_BROWSER_PATH` in `north.env`; if no path is found, only browser tool calls fail.
+At startup, North reads `<DSH_HOME>/north.env` (normally `%USERPROFILE%\.north\north.env` on Windows), then the packaged `resources/north.env`; either file may be absent. Existing environment variables take precedence over the user file, which takes precedence over the packaged file. Administrators copy `resources/north.env.example` to the user path and edit it there; upgrades and reinstalls retain that file, while upgrades replace the packaged file. An existing `NORTH_BROWSER_PATH` is kept; otherwise North checks installed Edge and Chrome executables on Windows, or Chrome and Edge under `/Applications` and `~/Applications` on macOS, and sets the first existing path. If no path is found, only browser tool calls fail.
 
 <a id="release-versions"></a>
 <a id="upload-updates"></a>

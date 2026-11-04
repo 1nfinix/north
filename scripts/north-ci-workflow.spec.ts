@@ -21,10 +21,10 @@ function steps(job: Record<string, unknown>): Record<string, unknown>[] {
 const scripts = (JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as { scripts: Record<string, string> }).scripts
 
 describe('North CI', () => {
-  it('runs on pushes and pull requests to north, comparing archives against the pull request base', () => {
+  it('runs on pull requests to north or manual dispatch, comparing archives against the pull request base', () => {
     const workflow: unknown = yaml.load(readFileSync(resolve(root, '.github/workflows/north-ci.yml'), 'utf8'))
     if (!isRecord(workflow) || !isRecord(workflow.jobs)) throw new TypeError('North CI must define jobs')
-    expect(workflow.on).toEqual({ push: { branches: ['north'] }, pull_request: { branches: ['north'] }, workflow_dispatch: null })
+    expect(workflow.on).toEqual({ pull_request: { branches: ['north'] }, workflow_dispatch: null })
     const job = workflow.jobs.static
     if (!isRecord(job)) throw new TypeError('North CI must define the static job')
     expect(job.env).toMatchObject({ NODE_OPTIONS: '--max-old-space-size=6144' })
@@ -49,22 +49,23 @@ describe('North CI', () => {
   })
 
   it('qualifies an unsigned Windows Desktop on dispatch or its own changes, on a hosted runner, without publishing', () => {
-    const workflow: unknown = yaml.load(readFileSync(resolve(root, '.github/workflows/north-windows-desktop.yml'), 'utf8'))
+    const workflowText = readFileSync(resolve(root, '.github/workflows/north-windows-desktop.yml'), 'utf8')
+    expect(workflowText).not.toContain('secrets.')
+    const workflow: unknown = yaml.load(workflowText)
     if (!isRecord(workflow) || !isRecord(workflow.jobs)) throw new TypeError('North Windows qualification must define jobs')
     if (!isRecord(workflow.on)) throw new TypeError('North Windows qualification must define its triggers')
     expect(workflow.on).toEqual({
       workflow_dispatch: null,
-      push: { branches: ['north'], paths: ['.github/workflows/north-windows-desktop.yml', 'apps/desktop/scripts/north-windows-scaling.mjs'] },
+      push: { branches: ['north', 'main'], paths: ['.github/workflows/north-windows-desktop.yml', 'apps/desktop/scripts/north-windows-scaling.mjs'] },
     })
     const job = workflow.jobs['qualify']
     if (!isRecord(job)) throw new TypeError('North Windows qualification must define the qualify job')
     expect(job['runs-on']).toBe('windows-latest')
     const jobSteps = steps(job)
-    const secretStep = jobSteps.find(step => step.name === 'Write North settings from secret')
-    expect(secretStep?.env).toMatchObject({ NORTH_ENV_CONTENT: '${{ secrets.NORTH_ENV }}' })
-    expect(secretStep?.run).toContain('Settings → Secrets')
-    expect(secretStep?.run).toContain('"NORTH_ENV_PATH=$path" | Out-File -FilePath $env:GITHUB_ENV -Append')
-    expect(jobSteps.findIndex(step => step === secretStep)).toBeLessThan(jobSteps.findIndex(step => step.name === 'Check packaging configuration and toolchain'))
+    const placeholderStep = jobSteps.find(step => step.name === 'Write packaged North placeholder')
+    expect(placeholderStep?.run).toContain("-Value '# Put real settings in %USERPROFILE%\\.north\\north.env; see north.env.example for variables.'")
+    expect(placeholderStep?.run).toContain('"NORTH_ENV_PATH=$path" | Out-File -FilePath $env:GITHUB_ENV -Append')
+    expect(jobSteps.findIndex(step => step === placeholderStep)).toBeLessThan(jobSteps.findIndex(step => step.name === 'Check packaging configuration and toolchain'))
     const installerArtifact = jobSteps.find(step => step.name === 'Retain unsigned installer')
     expect(installerArtifact?.with).toMatchObject({ 'retention-days': 7 })
     const runs = steps(job).map(step => typeof step.run === 'string' ? step.run.trim() : '')
@@ -78,7 +79,7 @@ describe('North CI', () => {
     ].map(command => runs.findIndex(run => `${run}\n`.includes(command)))
     expect(order.every(index => index >= 0)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
-    expect(runs.findIndex(run => run.includes('WriteAllText'))).toBeLessThan(order[1]!)
+    expect(runs.findIndex(run => run.includes('Set-Content -Path $path'))).toBeLessThan(order[1]!)
     expect(runs.join('\n')).not.toMatch(/upload:|--signed|DOWNLOAD_|_SECRET/)
     expect(existsSync(resolve(root, 'apps/desktop/scripts/north-windows-scaling.mjs'))).toBe(true)
   })

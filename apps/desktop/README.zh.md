@@ -229,9 +229,9 @@ Desktop 在 Host 启动后、打开工作区前检查模型 API Key 引用是否
 
 ## 打包
 
-North 打包时优先读取 `NORTH_ENV_PATH` 指向的现有文件，否则读取本机 `resources/north.env`。本机配置被 Git 忽略；实际打包前可复制 `resources/north.env.example` 并替换其中的文档示例地址。两者都不存在时打包失败；仅验收构建可设置 `NORTH_ENV_ALLOW_EXAMPLE=1` 打入示例文件。
+North 打包时优先读取 `NORTH_ENV_PATH` 指向的现有文件，否则读取本机 `resources/north.env`。本机配置被 Git 忽略；本机打包前可复制 `resources/north.env.example` 并替换其中的文档示例地址。两者都不存在时打包失败；验收构建可设置 `NORTH_ENV_ALLOW_EXAMPLE=1` 打入示例文件。公开 Windows 工作流通过 `NORTH_ENV_PATH` 提供仅含注释的文件；使用真实配置的本机安装包不得公开分发。
 
-启动时，North 读取 `resources/north.env`，并保留环境变量或该文件中已设置的 `NORTH_BROWSER_PATH`。否则在 Windows 上查找已安装的 Edge 和 Chrome 程序，或在 macOS 的 `/Applications` 与 `~/Applications` 下查找 Chrome 和 Edge，并设置第一个存在的路径。管理员可在 `north.env` 中设置 `NORTH_BROWSER_PATH`；都找不到时只有浏览器工具调用报错。
+启动时，North 先读取 `<DSH_HOME>/north.env`（Windows 通常为 `%USERPROFILE%\.north\north.env`），再读取安装包内的 `resources/north.env`；两个文件都允许不存在。已有环境变量优先于用户文件，用户文件优先于安装包文件。管理员把 `resources/north.env.example` 复制到用户目录并在那里修改；用户文件在升级和重装后保留，安装包文件在升级时覆盖。已设置的 `NORTH_BROWSER_PATH` 会保留；否则在 Windows 上查找已安装的 Edge 和 Chrome 程序，或在 macOS 的 `/Applications` 与 `~/Applications` 下查找 Chrome 和 Edge，并设置第一个存在的路径。都找不到时只有浏览器工具调用报错。
 
 <a id="release-versions"></a>
 <a id="upload-updates"></a>

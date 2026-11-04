@@ -4,8 +4,6 @@ name: North CI
 # enterprise or self-hosted runners that ci.yml and ci-master.yml target, so
 # this workflow runs the same gate aggregates on GitHub-hosted runners.
 on:
-  push:
-    branches: [north]
   pull_request:
     branches: [north]
   workflow_dispatch:

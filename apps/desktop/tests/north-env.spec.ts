@@ -19,9 +19,36 @@ function resources(text: string): string {
   return directory
 }
 
+function userHome(text?: string): string {
+  const directory = mkdtempSync(join(tmpdir(), 'north-home-'))
+  directories.push(directory)
+  if (text !== undefined) writeFileSync(join(directory, NORTH_ENV_FILE), text)
+  return directory
+}
+
 function ipv4(address: string): ReturnType<typeof networkInterfaces> {
   return { eth0: [{ address, family: 'IPv4', netmask: [255, 255, 0, 0].join('.'), mac: '00:00:00:00:00:00', internal: false, cidr: `${address}/16` }] }
 }
+
+describe('applyNorthEnvironment configuration files', () => {
+  it('prefers the user file over the packaged file', () => {
+    const env: NodeJS.ProcessEnv = { DSH_HOME: userHome('NORTH_LLM_MODEL=user-model\n') }
+    applyNorthEnvironment(resources('NORTH_LLM_MODEL=packaged-model\nNORTH_LLM2_MODEL=packaged-second\n'), env, {})
+    expect(env).toMatchObject({ NORTH_LLM_MODEL: 'user-model', NORTH_LLM2_MODEL: 'packaged-second' })
+  })
+
+  it('keeps existing environment variables ahead of the user file', () => {
+    const env: NodeJS.ProcessEnv = { DSH_HOME: userHome('NORTH_LLM_MODEL=user-model\n'), NORTH_LLM_MODEL: 'launch-model' }
+    applyNorthEnvironment(resources('NORTH_LLM_MODEL=packaged-model\n'), env, {})
+    expect(env.NORTH_LLM_MODEL).toBe('launch-model')
+  })
+
+  it('uses the packaged file when the user file is absent', () => {
+    const env: NodeJS.ProcessEnv = { DSH_HOME: userHome() }
+    applyNorthEnvironment(resources('NORTH_LLM_MODEL=packaged-model\n'), env, {})
+    expect(env.NORTH_LLM_MODEL).toBe('packaged-model')
+  })
+})
 
 describe('applyNorthEnvironment proxy selection', () => {
   it('uses the North proxy on a machine with an address in the proxied network', () => {

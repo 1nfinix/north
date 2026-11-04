@@ -1,10 +1,10 @@
-/** North deployment environment: data home, telemetry opt-out, and the admin-edited model file. */
+/** North deployment environment: data home, telemetry opt-out, and user and packaged model files. */
 
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir, networkInterfaces } from 'node:os'
 import { join, posix, win32 } from 'node:path'
 
-/** File an administrator edits beside the installed executable's resources. */
+/** Name of the user configuration file and the packaged fallback file. */
 export const NORTH_ENV_FILE = 'north.env'
 
 /** Proxy variables that, when any is already set, leave the proxy choice to the user. */
@@ -76,14 +76,16 @@ export function parseNorthEnv(text: string): Record<string, string> {
 
 /**
  * Fill unset variables before the Desktop resolves its paths and starts the Host.
- * Values already in the environment win, so Windows user variables override the file.
+ * Existing environment variables take precedence over `<DSH_HOME>/north.env`,
+ * which takes precedence over the packaged `resources/north.env`. Either file
+ * may be absent; other read failures are warned and loading continues.
  * When `NORTH_PROXY` and `NORTH_PROXY_NETWORK` are both set, no proxy variable is
  * already present, and a local IPv4 address starts with `NORTH_PROXY_NETWORK`,
  * `HTTP_PROXY` and `HTTPS_PROXY` become `NORTH_PROXY`; other machines connect directly.
- * @param resourcesDir - Directory holding `north.env`: `process.resourcesPath` when packaged.
+ * @param resourcesDir - Directory holding the packaged fallback file: `process.resourcesPath` when packaged.
  * @param env - Environment to complete; defaults to the process environment.
  * @param interfaces - Local network interfaces; defaults to the operating system's.
- * @param platform - Platform used to find a browser after loading `north.env`.
+ * @param platform - Platform used to find a browser after loading both files.
  * @param browserExists - Browser executable existence check.
  */
 export function applyNorthEnvironment(
@@ -95,14 +97,16 @@ export function applyNorthEnvironment(
 ): void {
   env.DSH_HOME ??= join(homedir(), '.north')
   env.DSH_TELEMETRY_DISABLED ??= '1'
-  let text: string | undefined
-  try {
-    text = readFileSync(join(resourcesDir, NORTH_ENV_FILE), 'utf8')
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') console.warn('north: cannot read north.env', error)
-  }
-  if (text !== undefined) {
-    for (const [key, value] of Object.entries(parseNorthEnv(text))) env[key] ??= value
+  for (const directory of [env.DSH_HOME, resourcesDir]) {
+    let text: string | undefined
+    try {
+      text = readFileSync(join(directory, NORTH_ENV_FILE), 'utf8')
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') console.warn('north: cannot read north.env', error)
+    }
+    if (text !== undefined) {
+      for (const [key, value] of Object.entries(parseNorthEnv(text))) env[key] ??= value
+    }
   }
   if (!env.NORTH_BROWSER_PATH) {
     delete env.NORTH_BROWSER_PATH

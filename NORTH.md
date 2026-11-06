@@ -85,6 +85,7 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 
 - `.gitignore`、`apps/desktop/tests/{north-env,north-env-source}.spec.ts`、`scripts/{verify-north-addresses,north-sensitive-hook}{,.spec}.ts`、`package.json`、`scripts/run-gates{,.spec}.ts`、`lefthook.yml`：示例配置、地址门禁与本机敏感词钩子；pre-commit 检查暂存新增行，pre-push 检查待推送提交的新增行与提交信息。
 - `.github/workflows/north-windows-desktop.yml` 与 `scripts/north-ci-workflow.spec.ts`：用仅含注释的配置文件打包，不向安装包写入真实配置，并限制安装包保留时间。
+- `.github/workflows/north-macos-desktop.yml`：在 GitHub 托管的 Apple Silicon 机器上分别构建 arm64、x64 未签名 DMG；用仅含注释的配置文件打包，安装包保留 7 天，打包日志保留 14 天。
 - `apps/desktop/tests/{installer-packaging,macos-signature,macos-disk-image-signature,shell-file-selection,packaged-runtime-verification,windows-asar-unpack,windows-update-publisher,installed-update-builder}.spec.ts`：测试打包显式允许示例配置。
 - `apps/desktop/README{,.zh}.md` 与 `README.i18n.yaml`：本机配置及打包说明。
 
@@ -159,6 +160,7 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 - `.github/workflows/north-ci.yml`（新文件）：向 `north` 开 PR 或手动触发时（推送不自动触发，以节省私有仓库的 Actions 免费额度），在 GitHub 托管机器上运行 `check:ci:static`、`check:ci:coverage`、`check:ci:windows-blocking` 和 `check:ci:north-web`。`north-web` 任务只安装 Chromium。
 - `scripts/run-gates.ts` 的 `ci-north-web` 聚合与 `package.json` 的 `check:ci:north-web`、`test:web:north`：先 `build:artifacts`，再以 `DSH_SNAPSHOT=replay` 运行 `north-distribution.e2e.ts` 和 `north-theme.e2e.ts`；`scripts/north-ci-workflow.spec.ts` 校验从工作流到这两个测试文件的完整链路。PR 上的归档门禁与 PR 基准提交比较。static 任务设 `NODE_OPTIONS=--max-old-space-size=6144`：可选依赖导入、文档图等门禁要为整个仓库建 TypeScript 程序，峰值超过托管机器默认的 2 GB 堆上限。上游工作流依赖上游组织的运行机器、secret、Issue 配置或 PyPI 发布，对 North 不适用，已在仓库设置中停用（`gh workflow disable`，不改文件，可用 `gh workflow enable` 恢复）：CI、CI Python、CI Windows、E2E、Build PR preview、Issue lifecycle、Issue policy、weighted-approval、Release (dsh)、Release (vendor)。合并上游后如出现新的上游工作流，同样停用。
 - `.github/workflows/north-windows-desktop.yml`（新文件）：手动触发，或在推送改动了该工作流或其缩放脚本时触发（GitHub 只通过推送触发登记默认分支以外的工作流），在 GitHub 托管的 `windows-latest` 上构建未签名的 win-x64 安装包，再运行 `test:installer`（中英文安装界面）、`test:updates:local`（本地更新流程），以及 `apps/desktop/scripts/north-windows-scaling.mjs`：静默安装后以 1、1.25、1.5、2 倍缩放启动已安装的应用，检查主窗口和技能设置页没有横向溢出、设置对话框不超出窗口，截图后静默卸载。上游的 `windows-package.yml` 依赖本仓库没有的自托管运行机器。证据只作为该次运行的 artifact 保留，不发布、不上传；`scripts/north-ci-workflow.spec.ts` 校验其触发方式、运行机器和步骤顺序。
+- `.github/workflows/north-macos-desktop.yml`：手动触发，或在推送改动该文件到 `north`、`main` 时触发；在 GitHub 托管的 `macos-latest` 上分别执行 arm64 与 x64 未签名打包，x64 作业先检查 Rosetta。两个架构各自上传 DMG 和打包日志，不签名、公证或发布到 Releases；`scripts/north-ci-workflow.spec.ts` 校验触发、矩阵、占位配置和归档规则。
 
 **打包**
 - `apps/desktop/scripts/desktop-package-environment.mjs`、`electron-builder-config.mjs`：未签名构建在所有平台跳过强制更新策略地址（上游只对 macOS 跳过）。
@@ -211,13 +213,13 @@ git merge upstream/master
 
 ## 管理员：模型设置
 
-真实配置由管理员放在每台机器的 `%USERPROFILE%\.north\north.env`，不进仓库或公开安装包。仓库里的 `apps/desktop/resources/north.env.example` 只有示例值（RFC 5737 文档专用地址）：
+真实配置由管理员放在每台机器的用户目录：Windows 为 `%USERPROFILE%\.north\north.env`，macOS 为 `~/.north/north.env`；不进仓库或公开安装包。仓库里的 `apps/desktop/resources/north.env.example` 只有示例值（RFC 5737 文档专用地址）：
 
 - 本机打包：原有打包脚本仍从 `apps/desktop/resources/north.env`（已在 `.gitignore` 中）读取，或从 `NORTH_ENV_PATH` 指向的文件读取。两者都没有时打包失败；测试打包可设 `NORTH_ENV_ALLOW_EXAMPLE=1` 改用示例文件。用真实配置打出的本机安装包不得公开分发。
-- 公开 CI 打包：`north-windows-desktop.yml` 在 `RUNNER_TEMP` 写入只有注释的 `north.env`，通过 `NORTH_ENV_PATH` 交给原有打包脚本；安装包内不含真实配置。
+- 公开 CI 打包：`north-windows-desktop.yml` 与 `north-macos-desktop.yml` 都在 `RUNNER_TEMP` 写入只有注释的 `north.env`，通过 `NORTH_ENV_PATH` 交给原有打包脚本；安装包内不含真实配置。
 - 不要把真实地址或网段前缀写进提交、文档、AI 会话或外脑记忆；需要时写「见本机 north.env」。
 
-安装后把示例文件复制为 `%USERPROFILE%\.north\north.env`，由管理员按需修改，保存后重启 North；该用户文件在升级和重装后保留。安装目录的 `resources\north.env` 随安装包提供，升级会覆盖。启动时的优先级是已有环境变量、用户文件、安装包文件。各项含义如下（值为示例）：
+安装后把示例文件复制到相应的用户配置路径，由管理员按需修改，保存后重启 North；该用户文件在升级和重装后保留。安装目录的 `resources/north.env` 随安装包提供，升级会覆盖。启动时的优先级是已有环境变量、用户文件、安装包文件。各项含义如下（值为示例）：
 
 ```
 # 内网模型一（模型选择器中可选）
@@ -273,6 +275,12 @@ NORTH_PROXY_NETWORK=198.51.100.
 - 抓包 30 分钟（启动、对话、办公任务、空闲），DNS 中不出现 `deepseek`、`deepseeksvc`、`myqcloud`；连接只指向本机回环地址、vLLM 主机，以及管理网电脑上的代理。
 - 无法抓包时，先在管理员 PowerShell 执行 `ipconfig /flushdns`，再按上述场景使用 30 分钟，每 5–10 分钟执行一次 `Get-DnsClientCache | Where-Object { $_.Entry -match 'deepseek|myqcloud' }`（应无输出）和 `Get-NetTCPConnection -State Established | Where-Object { (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName -like '*North*' } | Select-Object RemoteAddress, RemotePort -Unique`（只应出现上述地址）。缓存条目会过期，需多次检查；此方法不覆盖 UDP。出口防火墙日志可替代。
 
+## macOS 打包（未签名）
+
+在公开仓库手动触发 `north-macos-desktop.yml`，或推送该工作流文件到 `north`、`main`。`macos-latest` 的 Apple Silicon 机器分别执行 `package:desktop:mac:arm64:unsigned` 和 `package:desktop:mac:x64:unsigned`；两者使用锁定的 pnpm 依赖和只有注释的打包配置，不读取 `.env.macos`，也不需要 Apple 签名或公证凭据。每个目标的 DMG 位于 Actions artifact `north-macos-<arch>-unsigned-<run_id>-<run_attempt>`，保留 7 天；打包日志保留 14 天。未签名打包目前不生成 ZIP，工作流仍会收集将来可能产出的 ZIP。x64 目标依赖 Rosetta，托管机器上的完整打包与运行时冒烟须以实际 Actions 运行验收。
+
+管理员在 Mac 的 `~/.north/north.env` 放置真实配置。下载对应芯片的 DMG，打开后将 `North.app` 复制到「应用程序」；未签名应用首次打开可在「系统设置 → 隐私与安全性」选择「仍要打开」。打包配置的 `productName` 是 `North`，如果更名，应用文件名也相应改变。升级时替换应用，用户目录中的配置保留。
+
 ## 公开仓库同步
 
-私有库 `1nfinix/north-private` 的 `north` 分支保留全部上游文件；公开库 `1nfinix/north` 的 `main` 只放构建安装包需要的源码，由 [.north-public-exclude](.north-public-exclude) 列出排除的路径：上游开发资料、上游文档与测试快照、内部审计记录、上游专用工作流和 North CI。同步时在公开库工作区清空已跟踪文件，用 `git -C <私有库> archive --format=tar north | tar -x` 导出完整树，补加被 `.gitignore` 忽略但已跟踪的文件，再对清单中每一行执行 `git rm -r -q --ignore-unmatch -- <路径>`（`git archive` 不支持排除型 pathspec），扫描敏感词后提交推送。合并上游后若新增上游工作流或非工作区目录，同步更新排除清单；pnpm 工作区成员不能排除，否则 `pnpm install --frozen-lockfile` 会失败。安装包在公开库手动触发 `north-windows-desktop.yml` 构建，不含真实配置。
+私有库 `1nfinix/north-private` 的 `north` 分支保留全部上游文件；公开库 `1nfinix/north` 的 `main` 只放构建安装包需要的源码，由 [.north-public-exclude](.north-public-exclude) 列出排除的路径：上游开发资料、上游文档、内部审计记录、上游专用工作流和 North CI。同步时在公开库工作区清空已跟踪文件，用 `git -C <私有库> archive --format=tar north | tar -x` 导出完整树，补加被 `.gitignore` 忽略但已跟踪的文件，再对清单中每一行执行 `git rm -r -q --ignore-unmatch -- <路径>`（`git archive` 不支持排除型 pathspec），扫描敏感词后提交推送。合并上游后若新增上游工作流或非工作区目录，同步更新排除清单；pnpm 工作区成员不能排除，否则 `pnpm install --frozen-lockfile` 会失败。安装包在公开库手动触发 `north-windows-desktop.yml` 或 `north-macos-desktop.yml` 构建，不含真实配置。

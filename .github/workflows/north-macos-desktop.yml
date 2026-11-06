@@ -1,0 +1,86 @@
+name: North Desktop · macOS unsigned package
+
+# Public builds contain only a comment in north.env. Administrators keep real settings
+# in ~/.north/north.env on each Mac; unsigned packaging needs no .env.macos.
+on:
+  workflow_dispatch:
+  push:
+    branches: [north, main]
+    paths:
+      - .github/workflows/north-macos-desktop.yml
+
+permissions:
+  contents: read
+
+env:
+  DSH_TELEMETRY_DISABLED: '1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: macos-latest
+    name: macOS ${{ matrix.arch }} / unsigned package
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v5.0.0
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+
+      - name: Check build host
+        run: |
+          test "$(uname -m)" = arm64
+          if [[ '${{ matrix.arch }}' == x64 ]]; then arch -x86_64 /usr/bin/true; fi
+
+      - name: Install (immutable)
+        run: pnpm install --frozen-lockfile
+
+      - name: Write packaged North placeholder
+        run: |
+          printf '%s\n' '# Put real settings in ~/.north/north.env; see north.env.example for variables.' > "$RUNNER_TEMP/north.env"
+          echo "NORTH_ENV_PATH=$RUNNER_TEMP/north.env" >> "$GITHUB_ENV"
+
+      - name: Check packaging configuration and toolchain
+        run: pnpm run package:desktop:mac:${{ matrix.arch }}:unsigned -- --check
+
+      - name: Build unsigned DMG and verify packaged runtime
+        run: pnpm run package:desktop:mac:${{ matrix.arch }}:unsigned
+
+      - name: Retain packaging diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: north-macos-${{ matrix.arch }}-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+          path: apps/desktop/.desktop-build/packaging-runs/
+
+      - name: Retain unsigned installer
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: north-macos-${{ matrix.arch }}-unsigned-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+          path: |
+            apps/desktop/.desktop-build/targets/mac-${{ matrix.arch }}/unsigned-artifacts/*.dmg
+            apps/desktop/.desktop-build/targets/mac-${{ matrix.arch }}/unsigned-artifacts/*.zip

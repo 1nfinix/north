@@ -1,6 +1,6 @@
 # North 诺思
 
-North 是一款面向日常办公的 AI 桌面助手，基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（MIT）构建。它安装在 Windows 电脑上，连接局域网内的 vLLM 或 OpenAI 兼容模型网关；能访问互联网时，也可以使用 DeepSeek 官方模型。
+North 是一款面向日常办公的 AI 桌面助手，基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（MIT）构建。它安装在 Windows 或 macOS 电脑上，连接局域网内的 vLLM 或 OpenAI 兼容模型网关；能访问互联网时，也可以使用 DeepSeek 官方模型。
 
 [下载安装包](https://github.com/1nfinix/north/releases/latest) · [更新记录](../NORTH-CHANGELOG.md) · [维护说明](../NORTH.md)
 
@@ -22,6 +22,8 @@ North 是一款面向日常办公的 AI 桌面助手，基于 [DeepSeek Harness]
 
 ## 安装
 
+### Windows
+
 1. 从 [Releases](https://github.com/1nfinix/north/releases/latest) 下载 `north-<版本>-win-x64-unsigned.exe`，可以用 PowerShell 的 `Get-FileHash` 核对发布说明里的 SHA-256。
 2. 放好配置文件 `%USERPROFILE%\.north\north.env`（见下一节）。
 3. 双击安装包。安装包未签名，如出现「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」。
@@ -29,15 +31,27 @@ North 是一款面向日常办公的 AI 桌面助手，基于 [DeepSeek Harness]
 
 升级时直接运行新安装包，用户目录里的配置和会话不会被覆盖。
 
+### macOS
+
+1. 从 [macOS 打包工作流](https://github.com/1nfinix/north/actions/workflows/north-macos-desktop.yml) 的运行产物下载与芯片对应的 DMG：Apple Silicon 选 `arm64`，Intel 选 `x64`。
+2. 把配置文件放在 `~/.north/north.env`，打开 DMG，把应用拖入「应用程序」。
+3. 未签名应用首次打开时，在「系统设置 → 隐私与安全性」点「仍要打开」；也可在终端执行以下命令，再打开应用。当前打包配置的 `productName` 是 `North`，更名后须使用实际应用名。
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/North.app"
+```
+
+macOS 上按 [NORTH.md](../NORTH.md#管理员模型设置) 所述行为填写 `DEEPSEEK_API_KEY`，有 key 时新会话默认使用 DeepSeek 官方模型。升级时替换应用，`~/.north/north.env` 和会话保留。
+
 ## 配置模型
 
 North 启动时按以下顺序读取配置，靠前的优先：
 
-1. Windows 用户环境变量；
-2. 用户配置 `%USERPROFILE%\.north\north.env`；
-3. 安装包自带的 `resources\north.env`（只有说明，不含配置）。
+1. 已有环境变量；
+2. 用户配置：Windows 为 `%USERPROFILE%\.north\north.env`，macOS 为 `~/.north/north.env`；
+3. 安装包自带的 `resources/north.env`（只有说明，不含配置）。
 
-以 [north.env.example](../apps/desktop/resources/north.env.example) 为模板复制一份到用户目录，按实际网关修改。常用变量：
+以 [north.env.example](../apps/desktop/resources/north.env.example) 为模板复制一份到对应的用户目录，按实际网关修改。常用变量：
 
 | 变量 | 作用 |
 |---|---|
@@ -62,7 +76,7 @@ pnpm run build:artifacts
 pnpm run package:desktop:win:x64:unsigned
 ```
 
-本地打包会把 `apps/desktop/resources/north.env` 打进安装包，不要把含真实配置的安装包公开分发。本仓库的 GitHub Actions 只打包不含配置的安装包，见 [north-windows-desktop.yml](workflows/north-windows-desktop.yml)。
+本地打包会把 `apps/desktop/resources/north.env` 打进安装包，不要把含真实配置的安装包公开分发。本仓库的 [Windows](workflows/north-windows-desktop.yml) 与 [macOS](workflows/north-macos-desktop.yml) GitHub Actions 工作流只打包不含真实配置的安装包。
 
 ## 许可
 

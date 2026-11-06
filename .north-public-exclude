@@ -13,9 +13,8 @@
 .github/pull_request_template.md
 .github/review-ownership
 
-# 上游文档与测试快照
+# 上游文档（snapshots 保留：打包时的类型检查引用其中的测试辅助模块）
 docs
-snapshots
 python/sdk
 python/README.md
 python/README.zh.md
@@ -27,7 +26,7 @@ python/development.i18n.yaml
 # 内部审计记录
 NORTH-AUDIT-2026-10-23.md
 
-# 上游专用工作流，以及依赖上述文档门禁的 North CI（公开库只保留 north-windows-desktop.yml）
+# 上游专用工作流，以及依赖上述文档门禁的 North CI（公开库保留 North 的 Windows 和 macOS 打包工作流）
 .github/workflows/build-exe-for-python-sdk.yml
 .github/workflows/build-exe-for-ssh-helper.yml
 .github/workflows/build-preview-cloudflare.yml

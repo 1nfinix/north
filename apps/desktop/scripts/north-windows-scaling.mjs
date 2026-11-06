@@ -3,7 +3,8 @@
  * several device scale factors, check that the main window and the Skills settings section fit without horizontal
  * overflow, capture screenshots, then uninstall silently and check that the installation directory is gone.
  * Usage: node apps/desktop/scripts/north-windows-scaling.mjs <installer.exe> <output-directory>
- * The run sends no model request: a placeholder `NORTH_LLM_API_KEY` only keeps the welcome window out of the way.
+ * The run sends no model request: a documentation-range `NORTH_LLM_BASE_URL` registers a LAN route as in a deployment,
+ * and with the placeholder `NORTH_LLM_API_KEY` it keeps the DeepSeek welcome window out of the way.
  */
 import { execFile, spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -55,7 +56,8 @@ async function qualify(executable, scale, index) {
   const child = spawn(executable, [
     `--force-device-scale-factor=${String(scale)}`, `--remote-debugging-port=${String(port)}`,
   ], {
-    env: { ...process.env, DSH_HOME: home, NORTH_LLM_API_KEY: 'north-windows-qualification', DSH_TELEMETRY_DISABLED: '1' },
+    env: { ...process.env, DSH_HOME: home, NORTH_LLM_BASE_URL: 'http://192.0.2.1:9/v1', NORTH_LLM_API_KEY: 'north-windows-qualification',
+      DSH_TELEMETRY_DISABLED: '1' },
     stdio: 'ignore',
   })
   try {

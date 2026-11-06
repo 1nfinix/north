@@ -1,6 +1,0 @@
-- textbox "Describe the work to get done, / commands, @ files or sessions":
-  - paragraph: Use the bash tool to
-- button "Cancel"
-- img "Recording…"
-- button "Stop and transcribe"
-- button "Send message"

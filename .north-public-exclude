@@ -1,0 +1,63 @@
+# 公开库 1nfinix/north 导出时排除的路径（git pathspec，每行一个，相对仓库根目录）。
+# 私有库保留这些文件，方便合并上游；公开库只放构建安装包需要的源码。
+# 用法与维护规则见 NORTH.md「公开仓库同步」。不要排除 pnpm 工作区成员，否则 pnpm install --frozen-lockfile 会失败。
+
+# 上游开发资料
+.agents
+.gitlab-ci.yml
+.github/AGENTS.md
+.github/ISSUE_TEMPLATE
+.github/dependabot.yml
+.github/issue-management
+.github/preview-sizing
+.github/pull_request_template.md
+.github/review-ownership
+
+# 上游文档与测试快照
+docs
+snapshots
+python/sdk
+python/README.md
+python/README.zh.md
+python/README.i18n.yaml
+python/development.md
+python/development.zh.md
+python/development.i18n.yaml
+
+# 内部审计记录
+NORTH-AUDIT-2026-10-23.md
+
+# 上游专用工作流，以及依赖上述文档门禁的 North CI（公开库只保留 north-windows-desktop.yml）
+.github/workflows/build-exe-for-python-sdk.yml
+.github/workflows/build-exe-for-ssh-helper.yml
+.github/workflows/build-preview-cloudflare.yml
+.github/workflows/ci-master.yml
+.github/workflows/ci-python.yml
+.github/workflows/ci-windows.yml
+.github/workflows/ci.yml
+.github/workflows/cua-helper-package.yml
+.github/workflows/desktop-publish.yml
+.github/workflows/docs-pages.yml
+.github/workflows/e2e.yml
+.github/workflows/expected-filenames.yml
+.github/workflows/issue-lifecycle.yml
+.github/workflows/issue-policy.yml
+.github/workflows/macos-intel-package.yml
+.github/workflows/macos-package.yml
+.github/workflows/node-addon-system-release.yml
+.github/workflows/node-addon-system.yml
+.github/workflows/north-ci.yml
+.github/workflows/pi-ai-provider-e2e.yml
+.github/workflows/pr-check-after-approve.yml
+.github/workflows/pr-check-on-base-branch.yml
+.github/workflows/pr-check-on-head-branch.yml
+.github/workflows/publish-ssh-helper.yml
+.github/workflows/python-release.yml
+.github/workflows/release-publish.yml
+.github/workflows/release-vendor-publish.yml
+.github/workflows/release-vendor.yml
+.github/workflows/release.yml
+.github/workflows/sandbox.yml
+.github/workflows/weighted-approval-review-event.yml
+.github/workflows/weighted-approval.yml
+.github/workflows/windows-package.yml

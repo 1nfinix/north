@@ -22,15 +22,6 @@ const SHIPPED_CONFIG_GLOBS = [
 /** Ordinary single-line configuration forms this source check rejects; not full YAML analysis. */
 const INLINE_DENY = /^\s*(apiKey|baseURL|apiKeyEnv|authToken|headers)\s*:\s*!!js\b/
 
-/**
- * North: the distribution's LAN gateway addresses come from the administrator's
- * resources/north.env, and llm-pi-ai has no environment-snapshot endpoint, so
- * only that bundle's baseURLs may read the environment; credentials still may not.
- */
-const INLINE_ALLOW: Readonly<Record<string, RegExp>> = {
-  'packages/north/bundle/cordis.patch.yml': /^\s*baseURL\s*:\s*!!js process\.env\.NORTH_LLM2?_BASE_URL\b/,
-}
-
 /** Return every forbidden inline environment form in shipped configuration. */
 export function collectConfigSourceOwnershipViolations(root: string): string[] {
   const failures: string[] = []
@@ -39,11 +30,10 @@ export function collectConfigSourceOwnershipViolations(root: string): string[] {
       const rel = file.split(sep).join('/')
       readFileSync(resolve(root, rel), 'utf8').split('\n').forEach((line, index) => {
         if (!INLINE_DENY.test(line)) return
-        if (INLINE_ALLOW[rel]?.test(line) === true) return
         failures.push(
           `${rel}:${String(index + 1)}: inlines a credential or endpoint from the environment.`
-          + ' The adapter resolves apiKeyEnv through ctx.credentials and the endpoint through the'
-          + ' environment snapshot; inlining here bypasses both ladders.',
+          + ' Use apiKeyEnv for credentials and put endpoint selection in the adapter or a reviewed'
+          + ' bundle-level providers expression.',
         )
       })
     }

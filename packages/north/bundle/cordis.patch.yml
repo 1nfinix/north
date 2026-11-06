@@ -65,43 +65,41 @@
 - id: ui-settings-session-log
   disabled: true
 
-# ── models: two LAN gateways (intranet) and the official DeepSeek API (internet) ──
-# The default LAN provider reads NORTH_LLM_* and the second one NORTH_LLM2_*;
-# Desktop fills both from resources/north.env (see NORTH.md). DeepSeek resolves
+# ── models: configured LAN gateways and the official DeepSeek API ─────────────
+# Desktop fills unset variables from the user north.env, then packaged resources/north.env.
+# A LAN route exists only when its base URL is set. DeepSeek resolves
 # DEEPSEEK_API_KEY through the credentials service: the Models page, then the
 # launching environment, then .env files.
 
 - id: llm-pi-ai
   config:
-    providers:
-      north-lan:
-        displayName: !!js process.env.NORTH_LLM_DISPLAY_NAME || '内网模型'
-        api: openai-completions
-        baseURL: !!js process.env.NORTH_LLM_BASE_URL || 'http://127.0.0.1:8000/v1'
-        apiKeyEnv: NORTH_LLM_API_KEY
-        compat:
-          supportsDeveloperRole: false
-          supportsStore: false
-          maxTokensField: max_tokens
-        defaultContextWindow: !!js Number(process.env.NORTH_LLM_CONTEXT_WINDOW || 32768)
-        defaultMaxTokens: !!js Number(process.env.NORTH_LLM_MAX_TOKENS || 8192)
-        models:
-          - id: !!js process.env.NORTH_LLM_MODEL || 'north-default'
-            name: !!js process.env.NORTH_LLM_DISPLAY_NAME || '内网模型'
-      north-lan-2:
-        displayName: !!js process.env.NORTH_LLM2_DISPLAY_NAME || '内网模型 2'
-        api: openai-completions
-        baseURL: !!js process.env.NORTH_LLM2_BASE_URL || 'http://127.0.0.1:8001/v1'
-        apiKeyEnv: NORTH_LLM2_API_KEY
-        compat:
-          supportsDeveloperRole: false
-          supportsStore: false
-          maxTokensField: max_tokens
-        defaultContextWindow: !!js Number(process.env.NORTH_LLM2_CONTEXT_WINDOW || 32768)
-        defaultMaxTokens: !!js Number(process.env.NORTH_LLM2_MAX_TOKENS || 8192)
-        models:
-          - id: !!js process.env.NORTH_LLM2_MODEL || 'north-default-2'
-            name: !!js process.env.NORTH_LLM2_DISPLAY_NAME || '内网模型 2'
+    providers: !!js |
+      ({
+        ...(process.env.NORTH_LLM_BASE_URL ? {
+          'north-lan': {
+            displayName: process.env.NORTH_LLM_DISPLAY_NAME || '内网模型',
+            api: 'openai-completions',
+            baseURL: process.env.NORTH_LLM_BASE_URL,
+            apiKeyEnv: 'NORTH_LLM_API_KEY',
+            compat: { supportsDeveloperRole: false, supportsStore: false, maxTokensField: 'max_tokens' },
+            defaultContextWindow: Number(process.env.NORTH_LLM_CONTEXT_WINDOW || 32768),
+            defaultMaxTokens: Number(process.env.NORTH_LLM_MAX_TOKENS || 8192),
+            models: [{ id: process.env.NORTH_LLM_MODEL || 'north-default', name: process.env.NORTH_LLM_DISPLAY_NAME || '内网模型' }],
+          },
+        } : {}),
+        ...(process.env.NORTH_LLM2_BASE_URL ? {
+          'north-lan-2': {
+            displayName: process.env.NORTH_LLM2_DISPLAY_NAME || '内网模型 2',
+            api: 'openai-completions',
+            baseURL: process.env.NORTH_LLM2_BASE_URL,
+            apiKeyEnv: 'NORTH_LLM2_API_KEY',
+            compat: { supportsDeveloperRole: false, supportsStore: false, maxTokensField: 'max_tokens' },
+            defaultContextWindow: Number(process.env.NORTH_LLM2_CONTEXT_WINDOW || 32768),
+            defaultMaxTokens: Number(process.env.NORTH_LLM2_MAX_TOKENS || 8192),
+            models: [{ id: process.env.NORTH_LLM2_MODEL || 'north-default-2', name: process.env.NORTH_LLM2_DISPLAY_NAME || '内网模型 2' }],
+          },
+        } : {}),
+      })
 
 # The adapter speaks the Messages protocol, so the endpoint is pinned: an
 # OpenAI-style DEEPSEEK_BASE_URL (…/v1) in the environment would otherwise
@@ -110,12 +108,19 @@
   config:
     baseURL: https://api.deepseek.com/anthropic
 
-# New Sessions use DeepSeek on macOS or when the launching environment carries
-# its key, and the second LAN gateway (MiniMax-M2.7) otherwise; a model saved in Settings wins.
+# New Sessions use DeepSeek on macOS or with its key. Otherwise they prefer the
+# configured second LAN route, then the first; a saved model still wins.
 - id: agent-default-model
   config:
-    provider: !!js "process.platform === 'darwin' || process.env.DEEPSEEK_API_KEY ? 'deepseek-official' : 'north-lan-2'"
-    model: !!js "process.platform === 'darwin' || process.env.DEEPSEEK_API_KEY ? (process.env.NORTH_DEEPSEEK_MODEL || 'deepseek-v4-pro') : (process.env.NORTH_LLM2_MODEL || 'north-default-2')"
+    provider: !!js >-
+      process.platform === 'darwin' || process.env.DEEPSEEK_API_KEY ? 'deepseek-official'
+      : process.env.NORTH_LLM2_BASE_URL ? 'north-lan-2'
+      : process.env.NORTH_LLM_BASE_URL ? 'north-lan' : 'deepseek-official'
+    model: !!js >-
+      process.platform === 'darwin' || process.env.DEEPSEEK_API_KEY ? (process.env.NORTH_DEEPSEEK_MODEL || 'deepseek-v4-pro')
+      : process.env.NORTH_LLM2_BASE_URL ? (process.env.NORTH_LLM2_MODEL || 'north-default-2')
+      : process.env.NORTH_LLM_BASE_URL ? (process.env.NORTH_LLM_MODEL || 'north-default')
+      : (process.env.NORTH_DEEPSEEK_MODEL || 'deepseek-v4-pro')
 
 # Account sign-in stays off: the API key is the only DeepSeek credential.
 - id: llm-deepseek-account

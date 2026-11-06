@@ -27,16 +27,21 @@ const skill = (name: string, description: string, extra = ''): string => `---\nn
 
 it('mounts the North distribution with its Skills section, sidebar, and no plugin or terminal entry', async () => {
   const resources: { scaffold?: WebScaffold; browser?: Browser } = {}
-  // A placeholder key makes the LAN model usable, so the composer accepts `/`; the scenario sends no model request.
+  // Placeholder LAN settings make the model selectable; the scenario sends no model request.
   const hadKey = Object.hasOwn(process.env, 'NORTH_LLM_API_KEY')
   const previousKey = process.env.NORTH_LLM_API_KEY
+  const hadBaseURL = Object.hasOwn(process.env, 'NORTH_LLM_BASE_URL')
+  const previousBaseURL = process.env.NORTH_LLM_BASE_URL
   process.env.NORTH_LLM_API_KEY = 'north-e2e-placeholder'
+  process.env.NORTH_LLM_BASE_URL = 'https://gateway.example/v1'
   onTestFinished(async () => {
     try {
       try { await resources.browser?.close() } finally { await resources.scaffold?.close() }
     } finally {
       if (hadKey) process.env.NORTH_LLM_API_KEY = previousKey
       else Reflect.deleteProperty(process.env, 'NORTH_LLM_API_KEY')
+      if (hadBaseURL) process.env.NORTH_LLM_BASE_URL = previousBaseURL
+      else Reflect.deleteProperty(process.env, 'NORTH_LLM_BASE_URL')
     }
   })
   const scaffold = await launchWebScaffold({

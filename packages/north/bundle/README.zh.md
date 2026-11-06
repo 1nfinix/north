@@ -9,7 +9,7 @@ kind: "package-bundle"
 
 ## 概述
 
-本配置包把桌面版组合变成诺思（North）。它替换品牌，同时提供公司的 OpenAI 兼容局域网网关和 DeepSeek 官方 API 两类模型，配置了 DeepSeek key 时默认使用 DeepSeek，加入「办公助手」预设作为默认值并挂载诺思写作技能与 Playwright 浏览器工具，去掉「完全权限」预设，禁用终端服务、插件管理和「设置 → 内置插件」页，普通同事看不到终端和插件页，并禁用所有向 DeepSeek 上报的遥测和反馈。桌面版 profile 把它列在两个上游配置包之后。
+本配置包把桌面版组合变成诺思（North）。它替换品牌，提供已配置的 OpenAI 兼容局域网网关和 DeepSeek 官方 API 两类模型，并选择默认线路；加入「办公助手」预设作为默认值并挂载诺思写作技能与 Playwright 浏览器工具，去掉「完全权限」预设，禁用终端服务、插件管理和「设置 → 内置插件」页，普通同事看不到终端和插件页，并禁用所有向 DeepSeek 上报的遥测和反馈。桌面版 profile 把它列在两个上游配置包之后。
 
 ## 目录
 
@@ -27,11 +27,11 @@ kind: "package-bundle"
 
 ### 模型设置
 
-`north-lan` 提供者在启动时读取以下变量；诺思桌面版从安装目录下的 `resources/north.env` 加载它们。第二个网关 `north-lan-2` 读取前缀为 `NORTH_LLM2_` 的同名变量（回退值为 `http://127.0.0.1:8001/v1`、`north-default-2` 和 `内网模型 2`）；随桌面版分发的环境文件把它标为 MiniMax-M2.7。Windows 和 Linux 上没有 DeepSeek key 时，新会话使用第二个网关。两个内网提供者都留在模型选择器中。
+仅设置 `NORTH_LLM_BASE_URL` 时才注册 `north-lan`；`north-lan-2` 同样要求 `NORTH_LLM2_BASE_URL`。未配置的内网线路不出现在模型选择器中。诺思桌面版先从 `<DSH_HOME>/north.env`、再从安装包的 `resources/north.env` 补全未设置的变量。第二条线路读取 `NORTH_LLM2_` 变量，模型和显示名默认分别为 `north-default-2`、`内网模型 2`。Windows 和 Linux 上没有 DeepSeek key 时，新会话优先使用已配置的第二条线路，再选第一条；两条都未配置时默认使用 DeepSeek。
 
 | 变量 | 含义 | 默认值 |
 |---|---|---|
-| `NORTH_LLM_BASE_URL` | 网关地址，以 `/v1` 结尾 | `http://127.0.0.1:8000/v1` |
+| `NORTH_LLM_BASE_URL` | 网关地址，以 `/v1` 结尾；注册 `north-lan` 所必需 | 不注册该线路 |
 | `NORTH_LLM_MODEL` | 网关提供的模型 id | `north-default` |
 | `NORTH_LLM_API_KEY` | 网关要求时填写的 key | `EMPTY`（桌面版设置） |
 | `NORTH_LLM_DISPLAY_NAME` | 模型选择器中显示的名称 | `内网模型` |
@@ -40,7 +40,7 @@ kind: "package-bundle"
 
 用户在「模型设置」页保存提供者后，会把具体值写入自己的 profile 补丁，此后覆盖本层的设置。
 
-诺思桌面版还从该文件读取 `NORTH_PROXY` 和 `NORTH_PROXY_NETWORK`。尚未设置任何代理变量、且本机有以 `NORTH_PROXY_NETWORK` 开头的 IPv4 地址时，它把 `HTTP_PROXY` 和 `HTTPS_PROXY` 设为 `NORTH_PROXY`，这台电脑的模型和网页请求都经过代理；其他电脑直连。
+诺思桌面版还从这些文件读取 `NORTH_PROXY` 和 `NORTH_PROXY_NETWORK`。尚未设置任何代理变量、且本机有以 `NORTH_PROXY_NETWORK` 开头的 IPv4 地址时，它把 `HTTP_PROXY` 和 `HTTPS_PROXY` 设为 `NORTH_PROXY`，这台电脑的模型和网页请求都经过代理；其他电脑直连。
 
 ### 预装侧边栏
 
@@ -50,13 +50,13 @@ kind: "package-bundle"
 
 ### 内网与互联网
 
-诺思在能否访问互联网的网络中都可以使用。`llm-deepseek` 行在两个内网网关之外加入 DeepSeek 官方模型（V4.1 Flash 和 V4 Pro）。其 key `DEEPSEEK_API_KEY` 经凭据服务解析：先取「模型设置」页保存的 key，再取启动环境（macOS 桌面版读取登录 shell 的变量，`resources/north.env` 补上未设置的变量），最后取 `.env` 文件；没有 key 时模型选择器不列出 DeepSeek 模型。端点固定为 `https://api.deepseek.com/anthropic`，因为适配器使用 Messages 协议，OpenAI 风格的 `DEEPSEEK_BASE_URL` 否则会成为请求根地址。在 macOS 上，或启动环境带有 `DEEPSEEK_API_KEY` 时，新会话默认使用 DeepSeek（模型由 `NORTH_DEEPSEEK_MODEL` 指定，默认 `deepseek-v4-pro`），否则默认使用 `north-lan-2`（随桌面版分发时为 MiniMax-M2.7）；在设置中保存的模型优先于两者。
+诺思在能否访问互联网的网络中都可以使用。`llm-deepseek` 行在已配置的内网网关之外加入 DeepSeek 官方模型（V4.1 Flash 和 V4 Pro）。其 key `DEEPSEEK_API_KEY` 经凭据服务解析：先取「模型设置」页保存的 key，再取启动环境（macOS 桌面版读取登录 shell 的变量，用户文件和安装包内的 `north.env` 补上未设置的变量），最后取 `.env` 文件；没有 key 时模型选择器不列出 DeepSeek 模型。端点固定为 `https://api.deepseek.com/anthropic`，因为适配器使用 Messages 协议，OpenAI 风格的 `DEEPSEEK_BASE_URL` 否则会成为请求根地址。在 macOS 上，或启动环境带有 `DEEPSEEK_API_KEY` 时，新会话默认使用 DeepSeek（模型由 `NORTH_DEEPSEEK_MODEL` 指定，默认 `deepseek-v4-pro`）；否则依次使用已配置的 `north-lan-2`、`north-lan`，都没有时使用 DeepSeek。在设置中保存的模型优先于该默认值。
 
 网页工具通过 DeepSeek Search API（`deepseek-search-api`，每次搜索一个请求）搜索，并通过本地 HTTP 提供者抓取公开网页；不能访问互联网时，每次 `web_search` 和 `web_fetch` 调用都返回不可用错误。DeepSeek 账号登录、需要完整模型轮次的 `web-search-deepseek`，以及 DeepSeek 请求可附带的可选字段（会话日志上传和插件清单）保持关闭，DeepSeek 只收到模型和搜索请求本身。
 
 ### 浏览器工具
 
-宿主配置层为诺思桌面版与网页版会话挂载 `dsh-browser-use` 和 Playwright MCP 提供者。每个活动会话各启动一个 MCP 子进程；浏览器在首次调用浏览器工具时才启动。提供者以无头模式运行，并读取 `NORTH_BROWSER_PATH`。桌面版读取 `resources/north.env` 后，若该变量未设置，则在 Windows 上依次查找系统 Edge、系统 Chrome、用户 Chrome、用户 Edge，在 macOS 上依次查找系统 Chrome、系统 Edge，再查找 `~/Applications` 下的同名浏览器。管理员可在 `north.env` 中设置浏览器程序的完整路径，覆盖自动探测。没有探测到或配置路径时，提供者省略 `executablePath`；缺少浏览器只会使浏览器工具调用报错。固定版本的 Playwright MCP 不打开 `file://` 页面，因此浏览器技能使用本机 `127.0.0.1` 服务。
+宿主配置层为诺思桌面版与网页版会话挂载 `dsh-browser-use` 和 Playwright MCP 提供者。每个活动会话各启动一个 MCP 子进程；浏览器在首次调用浏览器工具时才启动。提供者以无头模式运行，并读取 `NORTH_BROWSER_PATH`。桌面版读取用户文件和安装包内的 `north.env` 后，若该变量未设置，则在 Windows 上依次查找系统 Edge、系统 Chrome、用户 Chrome、用户 Edge，在 macOS 上依次查找系统 Chrome、系统 Edge，再查找 `~/Applications` 下的同名浏览器。管理员可在用户文件中设置浏览器程序的完整路径，覆盖自动探测。没有探测到或配置路径时，提供者省略 `executablePath`；缺少浏览器只会使浏览器工具调用报错。固定版本的 Playwright MCP 不打开 `file://` 页面，因此浏览器技能使用本机 `127.0.0.1` 服务。
 
 -----
 

@@ -119,27 +119,56 @@ describe('North bundle layer', () => {
     }
   })
 
-  it('routes new Sessions to DeepSeek on macOS or with its key, and to the second LAN gateway otherwise', () => {
-    const config = targeted.get('agent-default-model')?.config as { provider: unknown; model: unknown }
-    const route = (env: Record<string, string>, platform: NodeJS.Platform = 'win32') => {
-      for (const name of ['DEEPSEEK_API_KEY', 'NORTH_DEEPSEEK_MODEL', 'NORTH_LLM_MODEL', 'NORTH_LLM2_MODEL']) vi.stubEnv(name, env[name])
-      const actual = Object.getOwnPropertyDescriptor(process, 'platform')!
-      Object.defineProperty(process, 'platform', { ...actual, value: platform })
-      try {
-        return { provider: evaluate(config.provider), model: evaluate(config.model) }
-      } finally {
-        Object.defineProperty(process, 'platform', actual)
+  const modelEnvNames = [
+    'DEEPSEEK_API_KEY', 'NORTH_DEEPSEEK_MODEL',
+    'NORTH_LLM_BASE_URL', 'NORTH_LLM_MODEL', 'NORTH_LLM_DISPLAY_NAME', 'NORTH_LLM_CONTEXT_WINDOW', 'NORTH_LLM_MAX_TOKENS',
+    'NORTH_LLM2_BASE_URL', 'NORTH_LLM2_MODEL', 'NORTH_LLM2_DISPLAY_NAME', 'NORTH_LLM2_CONTEXT_WINDOW', 'NORTH_LLM2_MAX_TOKENS',
+  ]
+
+  function modelConfig(env: Record<string, string>, platform: NodeJS.Platform = 'win32') {
+    for (const name of modelEnvNames) vi.stubEnv(name, env[name])
+    const actual = Object.getOwnPropertyDescriptor(process, 'platform')!
+    Object.defineProperty(process, 'platform', { ...actual, value: platform })
+    try {
+      const pi = targeted.get('llm-pi-ai')?.config as { providers: unknown }
+      const defaults = targeted.get('agent-default-model')?.config as { provider: unknown; model: unknown }
+      return {
+        providers: evaluate(pi.providers),
+        route: { provider: evaluate(defaults.provider), model: evaluate(defaults.model) },
       }
+    } finally {
+      Object.defineProperty(process, 'platform', actual)
     }
-    expect(route({})).toEqual({ provider: 'north-lan-2', model: 'north-default-2' })
-    expect(route({}, 'linux')).toEqual({ provider: 'north-lan-2', model: 'north-default-2' })
-    expect(route({}, 'darwin')).toEqual({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
-    expect(route({ NORTH_LLM2_MODEL: 'example-model-b' })).toEqual({ provider: 'north-lan-2', model: 'example-model-b' })
-    expect(route({ NORTH_LLM_MODEL: 'qwen3' })).toEqual({ provider: 'north-lan-2', model: 'north-default-2' })
-    expect(route({ DEEPSEEK_API_KEY: 'sk-test' })).toEqual({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
-    expect(route({ DEEPSEEK_API_KEY: 'sk-test', NORTH_DEEPSEEK_MODEL: 'deepseek-flash' })).toEqual({ provider: 'deepseek-official', model: 'deepseek-flash' })
-    const pi = targeted.get('llm-pi-ai')?.config as { providers: Record<string, { api: string; apiKeyEnv: string }> }
-    expect(pi.providers['north-lan']).toMatchObject({ api: 'openai-completions', apiKeyEnv: 'NORTH_LLM_API_KEY' })
-    expect(pi.providers['north-lan-2']).toMatchObject({ api: 'openai-completions', apiKeyEnv: 'NORTH_LLM2_API_KEY' })
+  }
+
+  it('omits both LAN routes without gateway addresses and falls back to DeepSeek', () => {
+    expect(modelConfig({})).toEqual({ providers: {}, route: { provider: 'deepseek-official', model: 'deepseek-v4-pro' } })
+    expect(modelConfig({ NORTH_LLM_BASE_URL: '', NORTH_LLM2_BASE_URL: '' }, 'linux').providers).toEqual({})
+  })
+
+  it('registers only the configured LAN route and selects it when no DeepSeek key is set', () => {
+    const first = modelConfig({ NORTH_LLM_BASE_URL: 'https://gateway.example/v1', NORTH_LLM_MODEL: 'qwen3' })
+    expect(first.route).toEqual({ provider: 'north-lan', model: 'qwen3' })
+    expect(first.providers).toEqual({
+      'north-lan': {
+        displayName: '内网模型', api: 'openai-completions', baseURL: 'https://gateway.example/v1', apiKeyEnv: 'NORTH_LLM_API_KEY',
+        compat: { supportsDeveloperRole: false, supportsStore: false, maxTokensField: 'max_tokens' },
+        defaultContextWindow: 32768, defaultMaxTokens: 8192, models: [{ id: 'qwen3', name: '内网模型' }],
+      },
+    })
+    const second = modelConfig({ NORTH_LLM2_BASE_URL: 'https://gateway-2.example/v1', NORTH_LLM2_MODEL: 'example-model-b', NORTH_LLM2_DISPLAY_NAME: 'Gateway B' })
+    expect(second.route).toEqual({ provider: 'north-lan-2', model: 'example-model-b' })
+    expect(second.providers).toMatchObject({ 'north-lan-2': { baseURL: 'https://gateway-2.example/v1', displayName: 'Gateway B', apiKeyEnv: 'NORTH_LLM2_API_KEY' } })
+    expect(Object.keys(second.providers as object)).toEqual(['north-lan-2'])
+  })
+
+  it('registers both LAN routes, prefers the second, and preserves DeepSeek precedence', () => {
+    const env = { NORTH_LLM_BASE_URL: 'https://gateway.example/v1', NORTH_LLM2_BASE_URL: 'https://gateway-2.example/v1' }
+    const both = modelConfig(env)
+    expect(Object.keys(both.providers as object)).toEqual(['north-lan', 'north-lan-2'])
+    expect(both.route).toEqual({ provider: 'north-lan-2', model: 'north-default-2' })
+    expect(modelConfig(env, 'darwin').route).toEqual({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
+    expect(modelConfig({ ...env, DEEPSEEK_API_KEY: 'sk-test', NORTH_DEEPSEEK_MODEL: 'deepseek-flash' }).route)
+      .toEqual({ provider: 'deepseek-official', model: 'deepseek-flash' })
   })
 })

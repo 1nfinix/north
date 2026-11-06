@@ -53,6 +53,8 @@ North 启动时按以下顺序读取配置，靠前的优先：
 
 以 [north.env.example](../apps/desktop/resources/north.env.example) 为模板复制一份到对应的用户目录，按实际网关修改。常用变量：
 
+仅填写 `NORTH_LLM_BASE_URL` 或 `NORTH_LLM2_BASE_URL` 时，对应的局域网模型线路才会出现在选择器里；两条都未填写时，新会话的默认线路为 DeepSeek。填写配置后完全退出并重启 North。
+
 | 变量 | 作用 |
 |---|---|
 | `NORTH_LLM_BASE_URL` / `NORTH_LLM2_BASE_URL` | 两条局域网模型线路的网关地址，以 `/v1` 结尾 |

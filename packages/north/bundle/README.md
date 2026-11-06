@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This bundle turns the Desktop composition into North (诺思). It swaps the brand, offers the company's OpenAI-compatible LAN gateway and the official DeepSeek API as models, defaulting to DeepSeek when its key is configured, adds the default 办公助手 preset, North skills, and Playwright browser tools, removes the full-access permission preset, disables the terminal service, the plugin manager, and the Settings → Built-in plugins page, so staff see no terminal and no plugin page, and disables every telemetry and feedback row that reports to DeepSeek. The Desktop profile lists it after the two upstream bundles.
+This bundle turns the Desktop composition into North (诺思). It swaps the brand, offers configured OpenAI-compatible LAN gateways and the official DeepSeek API as models, selects a default route, adds the default 办公助手 preset, North skills, and Playwright browser tools, removes the full-access permission preset, disables the terminal service, the plugin manager, and the Settings → Built-in plugins page, so staff see no terminal and no plugin page, and disables every telemetry and feedback row that reports to DeepSeek. The Desktop profile lists it after the two upstream bundles.
 
 ## Table of Contents
 
@@ -27,11 +27,11 @@ This bundle turns the Desktop composition into North (诺思). It swaps the bran
 
 ### Model settings
 
-The `north-lan` provider reads these variables at startup; North Desktop loads them from `resources/north.env` beside the executable. The second gateway, `north-lan-2`, reads the `NORTH_LLM2_` variables (fallbacks `http://127.0.0.1:8001/v1`, `north-default-2`, and `内网模型 2`); the shipped environment labels it MiniMax-M2.7. On Windows and Linux without a DeepSeek key, new Sessions use this second gateway. Both LAN providers remain in the model picker.
+The `north-lan` provider exists only when `NORTH_LLM_BASE_URL` is set; `north-lan-2` likewise requires `NORTH_LLM2_BASE_URL`. Unconfigured LAN routes do not appear in the model picker. North Desktop fills unset variables from `<DSH_HOME>/north.env`, then the packaged `resources/north.env`. The second route uses the `NORTH_LLM2_` variables and defaults to model `north-default-2` and display name `内网模型 2`. On Windows and Linux without a DeepSeek key, new Sessions prefer the configured second route, then the first; with neither configured, they default to DeepSeek.
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `NORTH_LLM_BASE_URL` | Gateway base URL ending in `/v1` | `http://127.0.0.1:8000/v1` |
+| `NORTH_LLM_BASE_URL` | Gateway base URL ending in `/v1`; required to register `north-lan` | No route |
 | `NORTH_LLM_MODEL` | Served model id | `north-default` |
 | `NORTH_LLM_API_KEY` | Gateway key, when it enforces one | `EMPTY` (set by Desktop) |
 | `NORTH_LLM_DISPLAY_NAME` | Name shown in the model picker | `内网模型` |
@@ -40,7 +40,7 @@ The `north-lan` provider reads these variables at startup; North Desktop loads t
 
 A user who saves the provider on the Models page writes literal values into their profile patch, which overrides this layer from then on.
 
-North Desktop also reads `NORTH_PROXY` and `NORTH_PROXY_NETWORK` from that file. When no proxy variable is already set and a local IPv4 address starts with `NORTH_PROXY_NETWORK`, it sets `HTTP_PROXY` and `HTTPS_PROXY` to `NORTH_PROXY`, so every model and web request from that machine goes through the proxy; other machines connect directly.
+North Desktop also reads `NORTH_PROXY` and `NORTH_PROXY_NETWORK` from those files. When no proxy variable is already set and a local IPv4 address starts with `NORTH_PROXY_NETWORK`, it sets `HTTP_PROXY` and `HTTPS_PROXY` to `NORTH_PROXY`, so every model and web request from that machine goes through the proxy; other machines connect directly.
 
 ### Preinstalled sidebar
 
@@ -50,13 +50,13 @@ The layer mounts the third-party [`dsh-better-sidebar`](https://github.com/omdsh
 
 ### Intranet and internet
 
-North works on networks with or without internet access. The `llm-deepseek` row adds the official DeepSeek models (V4.1 Flash and V4 Pro) beside the two LAN gateways. Its key `DEEPSEEK_API_KEY` resolves through the credentials service: a key saved on the Models page, then the launching environment (Desktop reads the login shell's variables on macOS, and `resources/north.env` fills unset ones), then `.env` files; without a key the picker lists no DeepSeek model. The endpoint is pinned to `https://api.deepseek.com/anthropic`, because the adapter speaks the Messages protocol and an OpenAI-style `DEEPSEEK_BASE_URL` would otherwise become its request root. New Sessions default to DeepSeek on macOS or when the launching environment carries `DEEPSEEK_API_KEY` (model `NORTH_DEEPSEEK_MODEL`, default `deepseek-v4-pro`) and to `north-lan-2` (MiniMax-M2.7 in the shipped environment) otherwise; a model saved in Settings wins over both.
+North works on networks with or without internet access. The `llm-deepseek` row adds the official DeepSeek models (V4.1 Flash and V4 Pro) beside configured LAN gateways. Its key `DEEPSEEK_API_KEY` resolves through the credentials service: a key saved on the Models page, then the launching environment (Desktop reads the login shell's variables on macOS, and the user and packaged `north.env` files fill unset ones), then `.env` files; without a key the picker lists no DeepSeek model. The endpoint is pinned to `https://api.deepseek.com/anthropic`, because the adapter speaks the Messages protocol and an OpenAI-style `DEEPSEEK_BASE_URL` would otherwise become its request root. New Sessions default to DeepSeek on macOS or when the launching environment carries `DEEPSEEK_API_KEY` (model `NORTH_DEEPSEEK_MODEL`, default `deepseek-v4-pro`); otherwise they select the configured `north-lan-2`, then `north-lan`, then DeepSeek. A model saved in Settings wins over this default.
 
 Web tools search through the DeepSeek Search API (`deepseek-search-api`, one request per search) and fetch public pages through the local HTTP provider; without internet access every `web_search` and `web_fetch` call returns an unavailable error. DeepSeek account sign-in, the model-turn search `web-search-deepseek`, and the optional fields DeepSeek requests may carry (the Session-log upload and the plugin inventory) stay disabled, so DeepSeek receives only the model and search requests themselves.
 
 ### Browser tools
 
-The host layer mounts `dsh-browser-use` and the Playwright MCP provider for Desktop and Web North Sessions. Each active Session starts its own MCP subprocess; the browser itself starts on the first browser tool call. The provider launches headless and reads `NORTH_BROWSER_PATH`. Desktop fills that variable after reading `resources/north.env` if it was not set: Windows checks system Edge, system Chrome, user Chrome, then user Edge; macOS checks system Chrome, system Edge, then the same browsers under `~/Applications`. Administrators can set the full executable path in `north.env` to override detection. Without a detected or configured path, the provider omits `executablePath`; a missing browser fails only the browser tool call. Browser skills use a local `127.0.0.1` server because the pinned Playwright MCP does not open `file://` pages.
+The host layer mounts `dsh-browser-use` and the Playwright MCP provider for Desktop and Web North Sessions. Each active Session starts its own MCP subprocess; the browser itself starts on the first browser tool call. The provider launches headless and reads `NORTH_BROWSER_PATH`. Desktop fills that variable after reading the user and packaged `north.env` files if it was not set: Windows checks system Edge, system Chrome, user Chrome, then user Edge; macOS checks system Chrome, system Edge, then the same browsers under `~/Applications`. Administrators can set the full executable path in the user file to override detection. Without a detected or configured path, the provider omits `executablePath`; a missing browser fails only the browser tool call. Browser skills use a local `127.0.0.1` server because the pinned Playwright MCP does not open `file://` pages.
 
 -----
 

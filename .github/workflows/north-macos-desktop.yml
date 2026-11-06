@@ -22,13 +22,16 @@ concurrency:
 
 jobs:
   package:
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
     name: macOS ${{ matrix.arch }} / unsigned package
     timeout-minutes: 180
     strategy:
       fail-fast: false
       matrix:
-        arch: [arm64, x64]
+        include:
+          # Each target builds natively: the packaged-runtime smoke test times out under Rosetta.
+          - { arch: arm64, runner: macos-latest }
+          - { arch: x64, runner: macos-15-intel }
     defaults:
       run:
         shell: bash
@@ -47,8 +50,9 @@ jobs:
 
       - name: Check build host
         run: |
-          test "$(uname -m)" = arm64
-          if [[ '${{ matrix.arch }}' == x64 ]]; then arch -x86_64 /usr/bin/true; fi
+          expected='${{ matrix.arch }}'
+          [[ "$expected" == x64 ]] && expected=x86_64
+          test "$(uname -m)" = "$expected"
 
       - name: Install (immutable)
         run: pnpm install --frozen-lockfile

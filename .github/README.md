@@ -33,7 +33,7 @@ North 是一款面向日常办公的 AI 桌面助手，基于 [DeepSeek Harness]
 
 ### macOS
 
-1. 从 [macOS 打包工作流](https://github.com/1nfinix/north/actions/workflows/north-macos-desktop.yml) 的运行产物下载与芯片对应的 DMG：Apple Silicon 选 `arm64`，Intel 选 `x64`。
+1. 从 [Releases](https://github.com/1nfinix/north/releases/latest) 下载与芯片对应的 DMG：Apple Silicon 选 `arm64`，Intel 选 `x64`。
 2. 把配置文件放在 `~/.north/north.env`，打开 DMG，把应用拖入「应用程序」。
 3. 未签名应用首次打开时，在「系统设置 → 隐私与安全性」点「仍要打开」；也可在终端执行以下命令，再打开应用。当前打包配置的 `productName` 是 `North`，更名后须使用实际应用名。
 

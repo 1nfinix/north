@@ -7,7 +7,7 @@
 **新增**
 - 新增公开库导出排除清单 `.north-public-exclude`：公开库不再包含上游开发资料、上游文档、内部审计记录和上游专用工作流，私有库保持完整。
 - 新增 `.github/README.md` 作为 GitHub 仓库首页：介绍能做什么、安全与隐私、安装、配置模型、从源码构建和许可；上游 `README.md` 保持不变。
-- 新增公开 macOS 未签名安装包工作流：在 GitHub 托管的 Apple Silicon 机器上分别构建 arm64 与 x64 DMG，按目标归档安装包和打包日志。
+- 新增公开 macOS 未签名安装包工作流：在 GitHub 托管机器上原生构建 arm64 与 x64 DMG（x64 用 Intel 机器），按目标归档安装包和打包日志。
 
 **安全**
 - macOS 公开构建使用仅含注释的 `north.env`，不引用仓库 secret；真实配置由管理员放在每台 Mac 的 `~/.north/north.env`。

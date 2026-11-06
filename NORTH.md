@@ -85,7 +85,7 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 
 - `.gitignore`、`apps/desktop/tests/{north-env,north-env-source}.spec.ts`、`scripts/{verify-north-addresses,north-sensitive-hook}{,.spec}.ts`、`package.json`、`scripts/run-gates{,.spec}.ts`、`lefthook.yml`：示例配置、地址门禁与本机敏感词钩子；pre-commit 检查暂存新增行，pre-push 检查待推送提交的新增行与提交信息。
 - `.github/workflows/north-windows-desktop.yml` 与 `scripts/north-ci-workflow.spec.ts`：用仅含注释的配置文件打包，不向安装包写入真实配置，并限制安装包保留时间。
-- `.github/workflows/north-macos-desktop.yml`：在 GitHub 托管的 Apple Silicon 机器上分别构建 arm64、x64 未签名 DMG；用仅含注释的配置文件打包，安装包保留 7 天，打包日志保留 14 天。
+- `.github/workflows/north-macos-desktop.yml`：在 GitHub 托管机器上原生构建 arm64（`macos-latest`）与 x64（`macos-15-intel`）未签名 DMG；用仅含注释的配置文件打包，安装包保留 7 天，打包日志保留 14 天。
 - `apps/desktop/tests/{installer-packaging,macos-signature,macos-disk-image-signature,shell-file-selection,packaged-runtime-verification,windows-asar-unpack,windows-update-publisher,installed-update-builder}.spec.ts`：测试打包显式允许示例配置。
 - `apps/desktop/README{,.zh}.md` 与 `README.i18n.yaml`：本机配置及打包说明。
 
@@ -160,7 +160,7 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 - `.github/workflows/north-ci.yml`（新文件）：向 `north` 开 PR 或手动触发时（推送不自动触发，以节省私有仓库的 Actions 免费额度），在 GitHub 托管机器上运行 `check:ci:static`、`check:ci:coverage`、`check:ci:windows-blocking` 和 `check:ci:north-web`。`north-web` 任务只安装 Chromium。
 - `scripts/run-gates.ts` 的 `ci-north-web` 聚合与 `package.json` 的 `check:ci:north-web`、`test:web:north`：先 `build:artifacts`，再以 `DSH_SNAPSHOT=replay` 运行 `north-distribution.e2e.ts` 和 `north-theme.e2e.ts`；`scripts/north-ci-workflow.spec.ts` 校验从工作流到这两个测试文件的完整链路。PR 上的归档门禁与 PR 基准提交比较。static 任务设 `NODE_OPTIONS=--max-old-space-size=6144`：可选依赖导入、文档图等门禁要为整个仓库建 TypeScript 程序，峰值超过托管机器默认的 2 GB 堆上限。上游工作流依赖上游组织的运行机器、secret、Issue 配置或 PyPI 发布，对 North 不适用，已在仓库设置中停用（`gh workflow disable`，不改文件，可用 `gh workflow enable` 恢复）：CI、CI Python、CI Windows、E2E、Build PR preview、Issue lifecycle、Issue policy、weighted-approval、Release (dsh)、Release (vendor)。合并上游后如出现新的上游工作流，同样停用。
 - `.github/workflows/north-windows-desktop.yml`（新文件）：手动触发，或在推送改动了该工作流或其缩放脚本时触发（GitHub 只通过推送触发登记默认分支以外的工作流），在 GitHub 托管的 `windows-latest` 上构建未签名的 win-x64 安装包，再运行 `test:installer`（中英文安装界面）、`test:updates:local`（本地更新流程），以及 `apps/desktop/scripts/north-windows-scaling.mjs`：静默安装后以 1、1.25、1.5、2 倍缩放启动已安装的应用，检查主窗口和技能设置页没有横向溢出、设置对话框不超出窗口，截图后静默卸载。上游的 `windows-package.yml` 依赖本仓库没有的自托管运行机器。证据只作为该次运行的 artifact 保留，不发布、不上传；`scripts/north-ci-workflow.spec.ts` 校验其触发方式、运行机器和步骤顺序。
-- `.github/workflows/north-macos-desktop.yml`：手动触发，或在推送改动该文件到 `north`、`main` 时触发；在 GitHub 托管的 `macos-latest` 上分别执行 arm64 与 x64 未签名打包，x64 作业先检查 Rosetta。两个架构各自上传 DMG 和打包日志，不签名、公证或发布到 Releases；`scripts/north-ci-workflow.spec.ts` 校验触发、矩阵、占位配置和归档规则。
+- `.github/workflows/north-macos-desktop.yml`：手动触发，或在推送改动该文件到 `north`、`main` 时触发；arm64 在 `macos-latest`、x64 在 `macos-15-intel` 上原生执行未签名打包，作业先核对机器架构；在 Apple Silicon 上经 Rosetta 构建 x64 时，打包后的运行时冒烟中 LibreOffice 转换会超时。两个架构各自上传 DMG 和打包日志，不签名、公证或发布到 Releases；`scripts/north-ci-workflow.spec.ts` 校验触发、矩阵、占位配置和归档规则。
 
 **打包**
 - `apps/desktop/scripts/desktop-package-environment.mjs`、`electron-builder-config.mjs`：未签名构建在所有平台跳过强制更新策略地址（上游只对 macOS 跳过）。
@@ -277,7 +277,7 @@ NORTH_PROXY_NETWORK=198.51.100.
 
 ## macOS 打包（未签名）
 
-在公开仓库手动触发 `north-macos-desktop.yml`，或推送该工作流文件到 `north`、`main`。`macos-latest` 的 Apple Silicon 机器分别执行 `package:desktop:mac:arm64:unsigned` 和 `package:desktop:mac:x64:unsigned`；两者使用锁定的 pnpm 依赖和只有注释的打包配置，不读取 `.env.macos`，也不需要 Apple 签名或公证凭据。每个目标的 DMG 位于 Actions artifact `north-macos-<arch>-unsigned-<run_id>-<run_attempt>`，保留 7 天；打包日志保留 14 天。未签名打包目前不生成 ZIP，工作流仍会收集将来可能产出的 ZIP。x64 目标依赖 Rosetta，托管机器上的完整打包与运行时冒烟须以实际 Actions 运行验收。
+在公开仓库手动触发 `north-macos-desktop.yml`，或推送该工作流文件到 `north`、`main`。`macos-latest`（Apple Silicon）执行 `package:desktop:mac:arm64:unsigned`，`macos-15-intel` 执行 `package:desktop:mac:x64:unsigned`；两者使用锁定的 pnpm 依赖和只有注释的打包配置，不读取 `.env.macos`，也不需要 Apple 签名或公证凭据。每个目标的 DMG 位于 Actions artifact `north-macos-<arch>-unsigned-<run_id>-<run_attempt>`，保留 7 天；打包日志保留 14 天。未签名打包目前不生成 ZIP，工作流仍会收集将来可能产出的 ZIP。发布时把 DMG 上传到公开库的 Releases。
 
 管理员在 Mac 的 `~/.north/north.env` 放置真实配置。下载对应芯片的 DMG，打开后将 `North.app` 复制到「应用程序」；未签名应用首次打开可在「系统设置 → 隐私与安全性」选择「仍要打开」。打包配置的 `productName` 是 `North`，如果更名，应用文件名也相应改变。升级时替换应用，用户目录中的配置保留。
 

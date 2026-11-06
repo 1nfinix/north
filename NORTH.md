@@ -283,4 +283,4 @@ NORTH_PROXY_NETWORK=198.51.100.
 
 ## 公开仓库同步
 
-私有库 `1nfinix/north-private` 的 `north` 分支保留全部上游文件；公开库 `1nfinix/north` 的 `main` 只放构建安装包需要的源码，由 [.north-public-exclude](.north-public-exclude) 列出排除的路径：上游开发资料、上游文档、内部审计记录、上游专用工作流和 North CI。同步时在公开库工作区清空已跟踪文件，用 `git -C <私有库> archive --format=tar north | tar -x` 导出完整树，补加被 `.gitignore` 忽略但已跟踪的文件，再对清单中每一行执行 `git rm -r -q --ignore-unmatch -- <路径>`（`git archive` 不支持排除型 pathspec），扫描敏感词后提交推送。合并上游后若新增上游工作流或非工作区目录，同步更新排除清单；pnpm 工作区成员不能排除，否则 `pnpm install --frozen-lockfile` 会失败。安装包在公开库手动触发 `north-windows-desktop.yml` 或 `north-macos-desktop.yml` 构建，不含真实配置。
+私有库 `1nfinix/north-private` 的 `north` 分支保留全部上游文件；公开库 `1nfinix/north` 的 `main` 只放构建安装包需要的源码，由 [.north-public-exclude](.north-public-exclude) 列出排除的路径：上游开发资料、上游文档、内部审计记录、上游专用工作流和 North CI。同步时在公开库工作区清空已跟踪文件，用 `git -C <私有库> archive --format=tar north | tar -x` 导出完整树，补加被 `.gitignore` 忽略但已跟踪的文件，再对清单中每一行执行 `git rm -r -f -q --ignore-unmatch -- <路径>`（需要 `-f`：刚导出的文件已暂存）（`git archive` 不支持排除型 pathspec），扫描敏感词后提交推送。合并上游后若新增上游工作流或非工作区目录，同步更新排除清单；pnpm 工作区成员不能排除，否则 `pnpm install --frozen-lockfile` 会失败。安装包在公开库手动触发 `north-windows-desktop.yml` 或 `north-macos-desktop.yml` 构建，不含真实配置。

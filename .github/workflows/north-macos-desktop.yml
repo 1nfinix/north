@@ -2,6 +2,7 @@ name: North Desktop · macOS unsigned package
 
 # Public builds contain only a comment in north.env. Administrators keep real settings
 # in ~/.north/north.env on each Mac; unsigned packaging needs no .env.macos.
+# Run it from the Actions page or by pushing a change to this file.
 on:
   workflow_dispatch:
   push:

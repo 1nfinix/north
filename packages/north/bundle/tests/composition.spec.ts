@@ -134,7 +134,7 @@ describe('North bundle layer', () => {
     expect(route({})).toEqual({ provider: 'north-lan-2', model: 'north-default-2' })
     expect(route({}, 'linux')).toEqual({ provider: 'north-lan-2', model: 'north-default-2' })
     expect(route({}, 'darwin')).toEqual({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
-    expect(route({ NORTH_LLM2_MODEL: 'agent-model' })).toEqual({ provider: 'north-lan-2', model: 'agent-model' })
+    expect(route({ NORTH_LLM2_MODEL: 'example-model-b' })).toEqual({ provider: 'north-lan-2', model: 'example-model-b' })
     expect(route({ NORTH_LLM_MODEL: 'qwen3' })).toEqual({ provider: 'north-lan-2', model: 'north-default-2' })
     expect(route({ DEEPSEEK_API_KEY: 'sk-test' })).toEqual({ provider: 'deepseek-official', model: 'deepseek-v4-pro' })
     expect(route({ DEEPSEEK_API_KEY: 'sk-test', NORTH_DEEPSEEK_MODEL: 'deepseek-flash' })).toEqual({ provider: 'deepseek-official', model: 'deepseek-flash' })

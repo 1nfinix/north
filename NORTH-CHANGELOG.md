@@ -10,4 +10,5 @@
 - 新增公开 macOS 未签名安装包工作流：在 GitHub 托管机器上原生构建 arm64 与 x64 DMG（x64 用 Intel 机器），按目标归档安装包和打包日志。
 
 **安全**
+- 示例配置与测试里的网关模型 id 改为示例名 `example-model-b`。
 - macOS 公开构建使用仅含注释的 `north.env`，不引用仓库 secret；真实配置由管理员放在每台 Mac 的 `~/.north/north.env`。

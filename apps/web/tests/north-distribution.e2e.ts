@@ -1,7 +1,7 @@
 /**
- * The complete North bundle as an enabled profile bundle, without model calls:
- * the brand title, the preinstalled sidebar's tabs with no terminal entry, no
- * plugin page in Settings, and the Skills settings section, whose effective
+ * The complete North distribution as enabled profile bundles, without model calls:
+ * the brand title, the preinstalled sidebar's terminal and plugin settings,
+ * and the Skills settings section, whose effective
  * skills match the `/` menu of a new chat in the workspace a New Session opens
  * (not the server start directory) and whose folder diagnostics list unusable
  * and overridden entries.
@@ -16,6 +16,7 @@ import { connectFreshWorkspaceZh } from './support.ts'
 import { captureStableAria, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold } from './scaffold.ts'
 
 const NORTH_BUNDLE = fileURLToPath(new URL('../../../packages/north/bundle', import.meta.url))
+const DEV_BUNDLE = fileURLToPath(new URL('../../../packages/north/dev-bundle', import.meta.url))
 const GOLDEN = fileURLToPath(new URL('./expected/north-distribution/skills.expected.md', import.meta.url))
 
 async function put(path: string, content: string): Promise<void> {
@@ -25,7 +26,7 @@ async function put(path: string, content: string): Promise<void> {
 
 const skill = (name: string, description: string, extra = ''): string => `---\nname: ${name}\ndescription: ${description}\n${extra}---\n`
 
-it('mounts the North distribution with its Skills section, sidebar, and no plugin or terminal entry', async () => {
+it('mounts North with office defaults and development capabilities', async () => {
   const resources: { scaffold?: WebScaffold; browser?: Browser } = {}
   // Placeholder LAN settings make the model selectable; the scenario sends no model request.
   const hadKey = Object.hasOwn(process.env, 'NORTH_LLM_API_KEY')
@@ -45,10 +46,20 @@ it('mounts the North distribution with its Skills section, sidebar, and no plugi
     }
   })
   const scaffold = await launchWebScaffold({
-    profile: { packages: [{ dir: NORTH_BUNDLE, enabled: true }], hmr: false },
+    profile: { packages: [{ dir: NORTH_BUNDLE, enabled: true }, { dir: DEV_BUNDLE, enabled: true }], hmr: false },
+    agentPresets: { default: 'office' },
     extraOverlayPath: fileURLToPath(new URL('./pin-browse-picker.overlay.yml', import.meta.url)),
   })
   resources.scaffold = scaffold
+  expect(scaffold.ctx.agentPresets.defaultId).toBe('office')
+  expect((await scaffold.ctx.agentPresets.list()).map(preset => preset.id)).toContain('standard')
+  const headers = new Headers()
+  scaffold.ctx.waterfall('llm-pi-ai/request-headers', {
+    provider: 'north-lan', model: 'example-model-a', baseURL: 'https://example.com/v1',
+    sessionId: SessionId('north-web-session'),
+  }, headers, () => headers)
+  expect(headers.get('X-Session-Id')).toBe('north-web-session')
+  expect(headers.get('x-session-affinity')).toBe('north-web-session')
   const browserSession = await scaffold.ctx.agents.create({
     sessionId: SessionId('north-browser-tools'),
     meta: { cwd: scaffold.workspaceCwd },
@@ -90,14 +101,13 @@ it('mounts the North distribution with its Skills section, sidebar, and no plugi
   for (const name of ['文件', 'Git', '任务管理', '侧边对话(beta)']) {
     await page.getByText(name, { exact: true }).first().waitFor()
   }
-  expect(await page.getByText(/终端/).count()).toBe(0)
+  await page.getByText('新建终端', { exact: true }).waitFor()
 
   await page.getByRole('button', { name: '设置', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: '设置' })
+  await dialog.getByText('内置插件', { exact: true }).first().click()
   await dialog.getByText('技能', { exact: true }).first().click()
   await dialog.getByText('/loan-memo', { exact: true }).waitFor()
-  expect(await dialog.getByText('内置插件', { exact: true }).count()).toBe(0)
-  expect(await dialog.getByText(/终端/).count()).toBe(0)
   const section = await captureStableAria(page, '[role="dialog"] section[aria-label="技能"]', scaffold.workspaceCwd)
   await compareOrRefreshGolden(GOLDEN, section, webSnapshotMode())
   const commands = (await dialog.getByRole('region', { name: '当前生效的技能' }).getByText(/^\/[a-z0-9-]+$/).allTextContents())
@@ -105,6 +115,7 @@ it('mounts the North distribution with its Skills section, sidebar, and no plugi
   expect(commands).toEqual(expect.arrayContaining([
     'browser-check', 'chart', 'dotted', 'dup', 'frontend-page', 'loan-memo', 'ppt-report',
     'repo-guide', 'shared-tool', 'skill-creator', 'weekly-report',
+    'code-review', 'git-commit', 'debugging', 'unit-test', 'code-explain', 'sql-review', 'api-doc', 'script-helper',
   ]))
   expect(commands).not.toContain('audit-hidden')
   expect(commands).not.toContain('launch-only')

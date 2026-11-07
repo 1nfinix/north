@@ -36,6 +36,9 @@ import {
   writeMacOSAppUpdateConfig,
 } from './macos-app-update-config.mjs'
 
+/** Product name shared by electron-builder and packaged application checks. */
+export const desktopProductName = 'North'
+
 /**
  * Create electron-builder configuration from one release environment.
  * @param {NodeJS.ProcessEnv} env - Packaging environment.
@@ -116,7 +119,7 @@ export function createElectronBuilderConfig(
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
     },
-    productName: 'North',
+    productName: desktopProductName,
     // The default copyright uses author.name; this line names the product instead.
     copyright: `Copyright © ${new Date().getFullYear()} \${productName}`,
     // Unsigned builds carry their own suffix so a shared file can never pass for a release artifact.

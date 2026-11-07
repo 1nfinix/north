@@ -74,6 +74,18 @@ export function parseNorthEnv(text: string): Record<string, string> {
   return variables
 }
 
+/** Invalid North model header configuration; the desktop startup handler displays this failure. */
+export class NorthEnvironmentError extends Error {
+  /**
+   * @param variable - Environment variable with invalid configuration.
+   * @param reason - Actionable diagnosis.
+   */
+  constructor(readonly variable: string, reason: string) {
+    super(`north: ${variable}: ${reason}`)
+    this.name = 'NorthEnvironmentError'
+  }
+}
+
 /**
  * Fill unset variables before the Desktop resolves its paths and starts the Host.
  * Existing environment variables take precedence over `<DSH_HOME>/north.env`,
@@ -84,14 +96,15 @@ export function parseNorthEnv(text: string): Record<string, string> {
  * `HTTP_PROXY` and `HTTPS_PROXY` become `NORTH_PROXY`; other machines connect directly.
  * @param resourcesDir - Directory holding the packaged fallback file: `process.resourcesPath` when packaged.
  * @param env - Environment to complete; defaults to the process environment.
- * @param interfaces - Local network interfaces; defaults to the operating system's.
+ * @param interfaces - Local network interfaces; read from the operating system when needed.
  * @param platform - Platform used to find a browser after loading both files.
  * @param browserExists - Browser executable existence check.
+ * @throws NorthEnvironmentError when a model header object or referenced variable is invalid.
  */
 export function applyNorthEnvironment(
   resourcesDir: string,
   env: NodeJS.ProcessEnv = process.env,
-  interfaces: ReturnType<typeof networkInterfaces> = networkInterfaces(),
+  interfaces?: ReturnType<typeof networkInterfaces>,
   platform: NodeJS.Platform = process.platform,
   browserExists: (path: string) => boolean = existsSync,
 ): void {
@@ -108,6 +121,40 @@ export function applyNorthEnvironment(
       for (const [key, value] of Object.entries(parseNorthEnv(text))) env[key] ??= value
     }
   }
+  const macNetwork = env.NORTH_MAC_NETWORK
+  if (!env.NORTH_MAC_ID && macNetwork) {
+    const matching = Object.values(interfaces ?? networkInterfaces()).flatMap(addresses => addresses ?? []).find(address =>
+      address.family === 'IPv4' && address.address.startsWith(macNetwork)
+      && address.mac.toLowerCase() !== '00:00:00:00:00:00')
+    if (matching !== undefined) env.NORTH_MAC_ID = matching.mac.toLowerCase()
+  }
+  for (const name of ['NORTH_LLM_HEADERS', 'NORTH_LLM2_HEADERS', 'NORTH_LLM3_HEADERS', 'NORTH_LLM4_HEADERS'] as const) {
+    const raw = env[name]
+    if (raw === undefined) continue
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch (_error) {
+      // Keep the parser error private: it may include a configured header value.
+      throw new NorthEnvironmentError(name, 'invalid JSON')
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)
+      || Object.values(parsed).some(value => typeof value !== 'string')) {
+      throw new NorthEnvironmentError(name, 'expected a JSON object with string values')
+    }
+    const headers = parsed as Record<string, string>
+    for (const [header, value] of Object.entries(headers)) {
+      headers[header] = value.replace(/\$\{([^{}]+)\}/gu, (_match, variable: string) => {
+        if (!/^NORTH_[A-Z0-9_]+$/u.test(variable)) {
+          throw new NorthEnvironmentError(name, `unsupported placeholder ${variable}`)
+        }
+        const replacement = env[variable]
+        if (!replacement) throw new NorthEnvironmentError(name, `missing ${variable}`)
+        return replacement
+      })
+    }
+    env[name] = JSON.stringify(headers)
+  }
   if (!env.NORTH_BROWSER_PATH) {
     delete env.NORTH_BROWSER_PATH
     const browserPath = findNorthBrowserPath(platform, env, browserExists)
@@ -117,11 +164,13 @@ export function applyNorthEnvironment(
   // gateways started without --api-key ignore it.
   env.NORTH_LLM_API_KEY ??= 'EMPTY'
   env.NORTH_LLM2_API_KEY ??= 'EMPTY'
+  env.NORTH_LLM3_API_KEY ??= 'EMPTY'
+  env.NORTH_LLM4_API_KEY ??= 'EMPTY'
   const proxy = env.NORTH_PROXY
   const network = env.NORTH_PROXY_NETWORK
   if (proxy === undefined || proxy === '' || network === undefined || network === '') return
   if (PROXY_NAMES.some(name => (env[name] ?? '') !== '')) return
-  const onNetwork = Object.values(interfaces).some(addresses => addresses?.some(address =>
+  const onNetwork = Object.values(interfaces ?? networkInterfaces()).some(addresses => addresses?.some(address =>
     address.family === 'IPv4' && address.address.startsWith(network)) === true)
   if (!onNetwork) return
   env.HTTP_PROXY = proxy

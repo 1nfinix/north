@@ -92,6 +92,8 @@
       "@deepseek-ai/dsh-north-skill-writing": ["./packages/north/skill-writing/src/index.ts"],
       "@deepseek-ai/dsh-north-skill-writing/client": ["./packages/north/skill-writing/src/client/index.ts"],
       "@deepseek-ai/dsh-north-bundle": ["./packages/north/bundle/src/index.ts"],
+      "@deepseek-ai/dsh-north-dev-bundle": ["./packages/north/dev-bundle/src/index.ts"],
+      "@deepseek-ai/dsh-north-skill-dev": ["./packages/north/skill-dev/src/index.ts"],
 
       "@deepseek-ai/dsh-experimental-claude-code-mods/types": ["./packages/experimental/claude-code-mods/src/types.ts"],
       // The example mods are source-only plugin entries; a source launch resolves the package subpath here.

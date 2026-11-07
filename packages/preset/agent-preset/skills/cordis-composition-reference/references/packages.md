@@ -342,6 +342,8 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 
 | Package | Config | Description |
 |---|---|---|
+| `@deepseek-ai/dsh-north-dev-bundle` | yes | North development capability layer: tools, programming preset, model headers and skills |
+| `@deepseek-ai/dsh-north-skill-dev` | yes | Eight bundled development skills for North |
 | `@deepseek-ai/dsh-north-skill-writing` | yes | Eleven bundled North skills for office writing, report decks, charts, browser checks, web pages, and skill creation |
 | `@deepseek-ai/dsh-north-ui-brand` | no | North brand occupants for the Web client's sidebar and conversation-hero slots |
 

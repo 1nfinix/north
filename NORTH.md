@@ -1,11 +1,11 @@
 # North（诺思）发行版维护说明
 
-North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（MIT）的公司内部桌面版：
-同事在自己的 Windows 电脑上安装，连接局域网里的 vLLM / OpenAI 兼容网关，能访问互联网时也可以使用 DeepSeek 官方模型，用于日常办公。
+North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（MIT）的单一桌面应用，面向日常办公和软件开发。所有用户都能在 Agent 预设中选择编程预设；新会话默认使用「办公助手」（`office`）。North 连接已配置的局域网 vLLM / OpenAI 兼容网关，也可在有网络与密钥时使用 DeepSeek 官方模型。
 
 - 分支：`north`，基于上游 dsh v0.2.2-alpha.2（2026-11-01 合并 `upstream/master`）；上游远程名为 `upstream`。
 - North 技能与品牌代码位于 `packages/north/`；对上游文件的改动见下方清单，合并上游时逐项检查。
 - 保留 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`；关于页写明「基于 DeepSeek Harness (MIT)」。
+- `north-dev` 分支停止维护。原开发版用户将 `~/.north-dev/north.env` 复制到 `~/.north/north.env`，再启动 North；Windows 使用对应的 `%USERPROFILE%` 路径。
 
 ## 维护规则
 
@@ -20,7 +20,9 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 |---|---|
 | `packages/north/ui-brand`（`@deepseek-ai/dsh-north-ui-brand`） | 侧栏与新会话首屏的罗盘标志和「North 诺思」；保存原始 logo 和图标生成脚本 |
 | `packages/north/skill-writing`（`@deepseek-ai/dsh-north-skill-writing`） | 十一个内置技能：周报（`weekly-report`）、会议纪要（`meeting-minutes`）、公文写作（`official-notice`）、邮件（`email-draft`）、翻译（`translation`）、长文总结（`long-summary`）、图表（`chart`）、网页检查（`browser-check`）、网页制作（`frontend-page`）、技能创建（`skill-creator`）、汇报 PPT（`ppt-report`）；「设置 → 技能」分区按 `/` 菜单读取的同一份注册表视图列出当前生效的技能（含来源），单独列出用户技能文件夹 `~/.north/skills` 中无法使用或被覆盖的条目，并能打开该文件夹 |
-| `packages/north/bundle`（`@deepseek-ai/dsh-north-bundle`） | 配置层：品牌、按地址配置才显示的局域网模型与 DeepSeek 官方模型（macOS 或有 key 时默认 DeepSeek，否则依次选已配置的内网模型二、内网模型一，都没有则选 DeepSeek）、DeepSeek 网页搜索与 HTTP 抓取、预装 Playwright 浏览器工具（路径由桌面启动时探测或 `NORTH_BROWSER_PATH` 指定）、办公助手预设（默认）、去掉完全权限、默认工作区建在 `<文稿>/North/default-workspace`、禁用终端服务 `terminal-controller`（原生终端和侧边栏终端都不可用）、禁用插件管理和「设置 → 内置插件」页（`ui-plugin-manager`、`ui-settings-plugins`、`ui-settings-plugin-inventory`）、关闭遥测、预装第三方侧边栏 `dsh-better-sidebar`（版本锁定在其 `package.json`；其文件接口不限于工作区，属于用户本人在界面上的操作，不给它打补丁） |
+| `packages/north/bundle`（`@deepseek-ai/dsh-north-bundle`） | 基础配置层：品牌、按地址配置才显示的前两条局域网模型与 DeepSeek 官方模型（完整发行版由开发能力层覆盖模型选择逻辑）、DeepSeek 网页搜索与 HTTP 抓取、预装 Playwright 浏览器工具（路径由桌面启动时探测或 `NORTH_BROWSER_PATH` 指定）、办公助手预设、在基础层去掉完全权限、默认工作区建在 `<文稿>/North/default-workspace`、在基础层禁用终端服务 `terminal-controller`、在基础层禁用插件管理和「设置 → 内置插件」页（`ui-plugin-manager`、`ui-settings-plugins`、`ui-settings-plugin-inventory`）、关闭遥测、预装第三方侧边栏 `dsh-better-sidebar`（版本锁定在其 `package.json`；其文件接口不限于工作区，属于用户本人在界面上的操作，不给它打补丁） |
+| `packages/north/dev-bundle`（`@deepseek-ai/dsh-north-dev-bundle`） | 开发能力层：启用终端、插件管理、编程与 PTC 等预设、可选完全权限、四条模型线路、压缩策略和按会话请求头；在办公配置包之后应用，默认预设仍为 `office` |
+| `packages/north/skill-dev`（`@deepseek-ai/dsh-north-skill-dev`） | 八个内置开发技能，供所有用户使用 |
 
 包名必须以 `@deepseek-ai/` 开头且不能设为 private，否则不会进入桌面版运行时（`scripts/release/families.ts`）。
 
@@ -181,8 +183,8 @@ North 是基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harne
 - `apps/web/tests/north-theme.e2e.ts`、`north-theme.overlay.yml`（新文件）与 `snapshots/web/north-theme/`（新目录）：浏览器配色验收；`apps/web/tsconfig.json` 排除、`tsconfig.host.json` 登记该 e2e。
 
 **发行版回归**
-- `apps/web/tests/north-distribution.e2e.ts`（新文件）：把 North bundle 作为已启用的 profile bundle 装载完整组合，验收品牌标题、预装侧栏标签、界面上没有终端入口和「内置插件」页，以及技能设置页：服务启动目录与新会话所在工作区分属不同项目，生效技能来自该工作区的项目 `.dsh/skills`（启动目录中的技能不出现）、`~/.agents/skills`、技能文件夹（含点文件）和内置技能，其 `/` 命令与新会话 `/` 菜单的技能项一致（含 `chart`、`browser-check`、`frontend-page`、`skill-creator`、`ppt-report`），并创建会话核对 Playwright MCP 工具目录；文件夹诊断列出异常条目和被覆盖条目；`apps/web/tsconfig.json` 排除、`tsconfig.host.json` 登记该 e2e。
-- `apps/web/tests/expected/north-distribution/skills.expected.md`：记录十一个内置技能在设置页中的可见名称、命令和描述。
+- `apps/web/tests/north-distribution.e2e.ts`（新文件）：把两个 North bundle 作为已启用的 profile bundle 装载完整组合，验收品牌标题、预装侧栏标签、界面上的终端入口和「内置插件」页，以及技能设置页：服务启动目录与新会话所在工作区分属不同项目，生效技能来自该工作区的项目 `.dsh/skills`（启动目录中的技能不出现）、`~/.agents/skills`、技能文件夹（含点文件）和内置技能，其 `/` 命令与新会话 `/` 菜单的技能项一致（含 `chart`、`browser-check`、`frontend-page`、`skill-creator`、`ppt-report`），并创建会话核对 Playwright MCP 工具目录；文件夹诊断列出异常条目和被覆盖条目；`apps/web/tsconfig.json` 排除、`tsconfig.host.json` 登记该 e2e。
+- `apps/web/tests/expected/north-distribution/skills.expected.md`：记录办公和开发内置技能在设置页中的可见名称、命令和描述。
 
 **测试可靠性**（上游文件，与 North 功能无关）
 - `packages/experimental/ptc-runtime-python/py/bootstrap.py`：完成值检查 `_check_done_value` 与编码 `_encode_json_plain` 在游标内直接处理标量子元素，`_dump_scalar` 对精确的 `int`、`bool`、`None` 直接格式化（与 `json.dumps` 逐字节一致）。内存仍是 O(深度)；600 万元素列表的检查加编码从约 28.6 秒降到约 4 秒，覆盖率分区并发时不再触发运行时的 60 秒墙钟上限。
@@ -224,18 +226,18 @@ git merge upstream/master
 ```
 # 内网模型一（模型选择器中可选）
 NORTH_LLM_BASE_URL=http://192.0.2.10:8088/v1
-NORTH_LLM_MODEL=deepseek
-NORTH_LLM_DISPLAY_NAME=DeepSeek-V4-Flash
+NORTH_LLM_MODEL=example-model-a
+NORTH_LLM_DISPLAY_NAME=示例模型 A
 NORTH_LLM_CONTEXT_WINDOW=1000000
 NORTH_LLM_MAX_TOKENS=40960
 # NORTH_LLM_API_KEY=<网关要求时填写>
-# 内网模型二（新会话默认：MiniMax-M2.7）
+# 内网模型二（示例）
 NORTH_LLM2_BASE_URL=http://192.0.2.20:18800/v1
 NORTH_LLM2_MODEL=example-model-b
-NORTH_LLM2_DISPLAY_NAME=MiniMax-M2.7
+NORTH_LLM2_DISPLAY_NAME=示例模型 B
 NORTH_LLM2_CONTEXT_WINDOW=180000
 NORTH_LLM2_MAX_TOKENS=32768
-NORTH_LLM2_API_KEY=dummy_key
+# NORTH_LLM2_API_KEY=
 # 管理网电脑经代理访问，生产网直连；NORTH_PROXY_NETWORK 填管理网地址前缀
 NORTH_PROXY=http://198.51.100.20:8080
 NORTH_PROXY_NETWORK=198.51.100.
@@ -249,7 +251,7 @@ NORTH_PROXY_NETWORK=198.51.100.
 - Windows 用户环境变量里的同名变量优先于用户文件和安装包文件。
 - 代理：North 启动时检查本机 IPv4 地址，有以 `NORTH_PROXY_NETWORK` 开头的地址就把 `HTTP_PROXY`/`HTTPS_PROXY` 设为 `NORTH_PROXY`，模型和网页请求都走代理；生产网电脑直连。电脑上已设置 `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` 时以其为准。
 - 浏览器：桌面版在读取 `north.env` 后优先使用已有的 `NORTH_BROWSER_PATH`，否则按系统位置探测 Edge 或 Chrome；Windows 先查系统安装目录，再查用户安装目录，macOS 先查 `/Applications`，再查 `~/Applications`。已安装但仍报找不到浏览器时，在 `north.env` 中设置 `NORTH_BROWSER_PATH` 为程序的完整路径并重启；都找不到时只有浏览器工具调用报错。
-- 只有填写 `NORTH_LLM_BASE_URL` 或 `NORTH_LLM2_BASE_URL` 时，对应内网线路才注册并出现在模型选择器。macOS 上或启动环境带有 `DEEPSEEK_API_KEY` 时，新会话默认使用 DeepSeek（端点固定为 `https://api.deepseek.com/anthropic`）；否则依次选择已配置的内网模型二、内网模型一，两条都未配置时回到 DeepSeek。没有 key 时模型选择器不列出 DeepSeek。网页搜索走 DeepSeek Search API，抓取走本地 HTTP；断网时这两个工具返回不可用。DeepSeek 账号登录、会话日志上传和插件清单字段保持关闭。macOS 上从 shell 启动或登录 shell 已导出该变量时无需写入此文件。
+- 只有填写对应的 `NORTH_LLM{,2,3,4}_BASE_URL` 时，内网线路才注册并出现在模型选择器。有 `DEEPSEEK_API_KEY` 时，新会话默认使用 DeepSeek（端点固定为 `https://api.deepseek.com/anthropic`）；否则依次选择已配置的四条内网线路，均未配置时回到 DeepSeek。没有 key 时模型选择器不列出 DeepSeek。网页搜索走 DeepSeek Search API，抓取走本地 HTTP；断网时这两个工具返回不可用。DeepSeek 账号登录、会话日志上传和插件清单字段保持关闭。macOS 上从 shell 启动或登录 shell 已导出该变量时无需写入此文件。
 - 用户在「设置 → 模型」页保存过提供者后，本机改用自己保存的值，`north.env` 对这台电脑不再生效。
 - 用户数据在 `%USERPROFILE%\.north`，与原版 DeepSeek Harness 的 `~/.dsh` 互不影响。
 - 推理模型（Qwen3、DeepSeek V4 等）需要在 `packages/north/bundle/cordis.patch.yml` 的 `north-lan` 模型条目里补 `reasoningEfforts` 和 `compat.thinkingFormat`，见 `docs/user/guide/providers.md`。
@@ -270,7 +272,7 @@ NORTH_PROXY_NETWORK=198.51.100.
 ### 安装后验收
 
 - 开始菜单、任务栏、托盘、安装器都显示罗盘图标；关于页显示「基于 DeepSeek Harness (MIT)」。
-- 不出现 DeepSeek 登录窗口；默认预设为「办公助手」；权限中没有「完全权限」；没有终端和插件页。
+- 不出现 DeepSeek 登录窗口；默认预设为「办公助手」；可选编程预设与「完全权限」；终端和插件页可用。
 - 改 `north.env` 后重启能切换网关；写作技能可用；能生成 docx / xlsx / pptx 并导出 PDF。
 - 抓包 30 分钟（启动、对话、办公任务、空闲），DNS 中不出现 `deepseek`、`deepseeksvc`、`myqcloud`；连接只指向本机回环地址、vLLM 主机，以及管理网电脑上的代理。
 - 无法抓包时，先在管理员 PowerShell 执行 `ipconfig /flushdns`，再按上述场景使用 30 分钟，每 5–10 分钟执行一次 `Get-DnsClientCache | Where-Object { $_.Entry -match 'deepseek|myqcloud' }`（应无输出）和 `Get-NetTCPConnection -State Established | Where-Object { (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName -like '*North*' } | Select-Object RemoteAddress, RemotePort -Unique`（只应出现上述地址）。缓存条目会过期，需多次检查；此方法不覆盖 UDP。出口防火墙日志可替代。

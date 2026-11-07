@@ -247,6 +247,7 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   '@deepseek-ai/dsh-skill-badge': ['assets'],
   '@deepseek-ai/dsh-skill-office': ['assets'],
   // North: the writing skills ship their SKILL.md folders.
+  '@deepseek-ai/dsh-north-skill-dev': ['assets'],
   '@deepseek-ai/dsh-north-skill-writing': [
     'assets',
     'assets/official-notice/references/document-types.md',

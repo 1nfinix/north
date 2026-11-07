@@ -1,0 +1,692 @@
+# North development capabilities follow the office layer.
+- id: better-sidebar
+  config:
+    tabsEnabled:
+      terminal-bottom: true
+
+- insert:
+    - id: north-skill-dev
+      name: '@deepseek-ai/dsh-north-skill-dev'
+    - id: north-dev-session-headers
+      name: '@deepseek-ai/dsh-north-dev-bundle'
+      config:
+        headers:
+          - X-Session-Id
+          - x-session-affinity
+
+- id: system-prompt
+  config:
+    includeHarnessIdentity: false
+    personaPrefix: >-
+      你是诺思（North）助手，由 {{model}} 模型驱动，帮助用户完成办公、写作、分析、编码、调试和测试任务。
+
+- id: harness-dev-context
+  disabled: false
+
+- id: llm-pi-ai
+  config:
+    providers: !!js |
+      ({
+        ...(process.env.NORTH_LLM_BASE_URL ? {
+          'north-lan': {
+            displayName: process.env.NORTH_LLM_DISPLAY_NAME || '内网模型',
+            api: 'openai-completions',
+            baseURL: process.env.NORTH_LLM_BASE_URL,
+            apiKeyEnv: 'NORTH_LLM_API_KEY',
+            headers: JSON.parse(process.env.NORTH_LLM_HEADERS || '{}'),
+            compat: { supportsDeveloperRole: false, supportsStore: false, maxTokensField: 'max_tokens' },
+            defaultContextWindow: Number(process.env.NORTH_LLM_CONTEXT_WINDOW || 32768),
+            defaultMaxTokens: Number(process.env.NORTH_LLM_MAX_TOKENS || 8192),
+            models: [{ id: process.env.NORTH_LLM_MODEL || 'north-default', name: process.env.NORTH_LLM_DISPLAY_NAME || '内网模型' }],
+          },
+        } : {}),
+        ...(process.env.NORTH_LLM2_BASE_URL ? {
+          'north-lan-2': {
+            displayName: process.env.NORTH_LLM2_DISPLAY_NAME || '内网模型 2',
+            api: 'openai-completions',
+            baseURL: process.env.NORTH_LLM2_BASE_URL,
+            apiKeyEnv: 'NORTH_LLM2_API_KEY',
+            headers: JSON.parse(process.env.NORTH_LLM2_HEADERS || '{}'),
+            compat: { supportsDeveloperRole: false, supportsStore: false, maxTokensField: 'max_tokens' },
+            defaultContextWindow: Number(process.env.NORTH_LLM2_CONTEXT_WINDOW || 32768),
+            defaultMaxTokens: Number(process.env.NORTH_LLM2_MAX_TOKENS || 8192),
+            models: [{ id: process.env.NORTH_LLM2_MODEL || 'north-default-2', name: process.env.NORTH_LLM2_DISPLAY_NAME || '内网模型 2' }],
+          },
+        } : {}),
+        ...(process.env.NORTH_LLM3_BASE_URL ? {
+          'north-lan-3': {
+            displayName: process.env.NORTH_LLM3_DISPLAY_NAME || '内网模型 3',
+            api: 'openai-completions',
+            baseURL: process.env.NORTH_LLM3_BASE_URL,
+            apiKeyEnv: 'NORTH_LLM3_API_KEY',
+            headers: JSON.parse(process.env.NORTH_LLM3_HEADERS || '{}'),
+            compat: { supportsDeveloperRole: false, supportsStore: false, maxTokensField: 'max_tokens' },
+            defaultContextWindow: Number(process.env.NORTH_LLM3_CONTEXT_WINDOW || 32768),
+            defaultMaxTokens: Number(process.env.NORTH_LLM3_MAX_TOKENS || 8192),
+            models: [{ id: process.env.NORTH_LLM3_MODEL || 'north-default-3', name: process.env.NORTH_LLM3_DISPLAY_NAME || '内网模型 3' }],
+          },
+        } : {}),
+        ...(process.env.NORTH_LLM4_BASE_URL ? {
+          'north-lan-4': {
+            displayName: process.env.NORTH_LLM4_DISPLAY_NAME || '内网模型 4',
+            api: 'openai-completions',
+            baseURL: process.env.NORTH_LLM4_BASE_URL,
+            apiKeyEnv: 'NORTH_LLM4_API_KEY',
+            headers: JSON.parse(process.env.NORTH_LLM4_HEADERS || '{}'),
+            compat: { supportsDeveloperRole: false, supportsStore: false, maxTokensField: 'max_tokens' },
+            defaultContextWindow: Number(process.env.NORTH_LLM4_CONTEXT_WINDOW || 32768),
+            defaultMaxTokens: Number(process.env.NORTH_LLM4_MAX_TOKENS || 8192),
+            models: [{ id: process.env.NORTH_LLM4_MODEL || 'north-default-4', name: process.env.NORTH_LLM4_DISPLAY_NAME || '内网模型 4' }],
+          },
+        } : {}),
+      })
+
+- id: agent-default-model
+  config:
+    provider: !!js >-
+      process.env.DEEPSEEK_API_KEY ? 'deepseek-official'
+      : process.env.NORTH_LLM_BASE_URL ? 'north-lan'
+      : process.env.NORTH_LLM2_BASE_URL ? 'north-lan-2'
+      : process.env.NORTH_LLM3_BASE_URL ? 'north-lan-3'
+      : process.env.NORTH_LLM4_BASE_URL ? 'north-lan-4' : 'deepseek-official'
+    model: !!js >-
+      process.env.DEEPSEEK_API_KEY ? (process.env.NORTH_DEEPSEEK_MODEL || 'deepseek-v4-pro')
+      : process.env.NORTH_LLM_BASE_URL ? (process.env.NORTH_LLM_MODEL || 'north-default')
+      : process.env.NORTH_LLM2_BASE_URL ? (process.env.NORTH_LLM2_MODEL || 'north-default-2')
+      : process.env.NORTH_LLM3_BASE_URL ? (process.env.NORTH_LLM3_MODEL || 'north-default-3')
+      : process.env.NORTH_LLM4_BASE_URL ? (process.env.NORTH_LLM4_MODEL || 'north-default-4') : (process.env.NORTH_DEEPSEEK_MODEL || 'deepseek-v4-pro')
+
+- id: permission
+  config:
+    presets:
+      read-only:
+        sandbox: read-only
+        approval: ask
+      workspace-write:
+        sandbox: workspace-write
+        approval: ask
+      danger-full-access:
+        sandbox: danger-full-access
+        approval: never
+
+- id: terminal-controller
+  disabled: false
+- id: ui-sidebar-terminal
+  disabled: false
+- id: ui-plugin-manager
+  disabled: false
+- id: ui-settings-plugins
+  disabled: false
+- id: ui-settings-plugin-inventory
+  disabled: false
+- id: preset-ptc
+  disabled: false
+- id: preset-minimal
+  disabled: false
+- id: agent-preset-registry
+  config:
+    default: office
+
+# Each preset owns an isolated compaction backend. The root compaction-basic row
+# is disabled, and profile patches cannot target preset config.plugins by child id.
+
+# Isolated compaction policy for standard.
+- id: preset-standard
+  name: '@deepseek-ai/dsh-agent-preset'
+  config:
+    id: standard
+    order: 1
+    plugins:
+      - id: persona
+        name: '@deepseek-ai/dsh-persona'
+        config:
+          prefix: You are a coding agent powered by the {{model}} model.
+      - id: agent-instructions
+        name: '@deepseek-ai/dsh-agent-instructions'
+        config:
+          maxBytes: 65536
+      - id: time-context
+        name: '@deepseek-ai/dsh-time-context'
+      - id: tool-bash
+        name: '@deepseek-ai/dsh-tool-bash'
+        disabled: !!js process.platform === 'win32'
+      - id: tool-pwsh
+        name: '@deepseek-ai/dsh-tool-pwsh'
+        disabled: !!js process.platform !== 'win32'
+      - id: tool-fs
+        name: '@deepseek-ai/dsh-tool-fs'
+        config:
+          # Set true to add the apply_patch tool beside edit.
+          applyPatch: false
+      - id: tool-fs-search
+        name: '@deepseek-ai/dsh-tool-fs-search'
+        config:
+          sampleOverCapGlobResults: false
+      - id: tool-jobs
+        name: '@deepseek-ai/dsh-tool-jobs'
+      - id: tool-schedule
+        name: '@deepseek-ai/dsh-tool-schedule'
+      - id: skill-filesystem
+        name: '@deepseek-ai/dsh-skill-filesystem'
+      - id: tool-skill
+        name: '@deepseek-ai/dsh-tool-skill'
+      - id: command-goal
+        name: '@deepseek-ai/dsh-command-goal'
+      - id: tool-goal
+        name: '@deepseek-ai/dsh-tool-goal'
+      - id: planning
+        name: cordis:group
+        group: true
+        isolate:
+          planMode: true
+        config:
+          - id: plan-mode
+            name: '@deepseek-ai/dsh-plan-mode'
+            config:
+              section: |
+                You are in plan mode. Stay in plan mode until the user approves your plan through exit_plan_mode or switches the session mode. Imperative language to implement changes means plan the implementation, not execute it. A user's conversational agreement — including an answer confirming something you asked — approves nothing and does not end plan mode; fold the confirmed decision into the plan and submit it through exit_plan_mode.
+
+                Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
+
+                The tool catalog stays the same across modes for request-cache stability. These plan-mode rules override any later tool description or guidance that suggests using mutation tools; those tools remain listed to keep the tool catalog unchanged. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
+
+                Resolve discoverable facts by inspection. Use ask_user_question only for user-owned choices or material ambiguity that inspection cannot answer. Do not ask the user where code lives or how current behavior works when you can find out.
+
+                Make the plan decision-complete: state the goal and success criteria; group implementation changes by subsystem; identify public API, schema, and data-flow changes; cover edge cases, failure modes, tests, acceptance criteria, and explicit assumptions. Keep it concise enough to review but detailed enough that another engineer can implement it without making design decisions.
+
+                When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.
+      - id: compaction
+        name: cordis:group
+        group: true
+        isolate:
+          compaction: true
+          toolResultPruner: true
+        config:
+          - id: compaction-basic
+            name: '@deepseek-ai/dsh-compaction-basic'
+            config:
+              modelPolicies: &north-lan-model-policies
+                - provider: north-lan
+                  model: !!js process.env.NORTH_LLM_MODEL || 'north-default'
+                  headroomTokens: !!js Number(process.env.NORTH_LLM_MAX_TOKENS || 8192)
+                - provider: north-lan-2
+                  model: !!js process.env.NORTH_LLM2_MODEL || 'north-default-2'
+                  headroomTokens: !!js Number(process.env.NORTH_LLM2_MAX_TOKENS || 8192)
+                - provider: north-lan-3
+                  model: !!js process.env.NORTH_LLM3_MODEL || 'north-default-3'
+                  headroomTokens: !!js Number(process.env.NORTH_LLM3_MAX_TOKENS || 8192)
+                - provider: north-lan-4
+                  model: !!js process.env.NORTH_LLM4_MODEL || 'north-default-4'
+                  headroomTokens: !!js Number(process.env.NORTH_LLM4_MAX_TOKENS || 8192)
+          - id: command-compact
+            name: '@deepseek-ai/dsh-command-compact'
+          - id: tool-result-pruner
+            name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+            config:
+              thresholdChars: 8192
+              headChars: 4096
+              tailChars: 1024
+      - id: delegation
+        name: cordis:group
+        group: true
+        isolate:
+          workflowEngine: true
+        config:
+          - id: tool-subagent-control
+            name: '@deepseek-ai/dsh-tool-subagent-control'
+          - id: tool-subagent
+            name: '@deepseek-ai/dsh-tool-subagent'
+            config:
+              provider: spawn
+              toolName: subagent
+              modelSelection: true
+              modelDiscovery: true
+          - id: tool-subagent-fork
+            name: '@deepseek-ai/dsh-tool-subagent'
+            config:
+              provider: fork
+              toolName: subagent_fork
+          - id: workflow-ptc
+            name: '@deepseek-ai/dsh-workflow-ptc'
+            config:
+              provider: spawn
+          - id: tool-workflow
+            name: '@deepseek-ai/dsh-tool-workflow'
+      - id: tool-ask-user
+        name: '@deepseek-ai/dsh-tool-ask-user'
+      - id: tool-todo
+        name: '@deepseek-ai/dsh-tool-todo'
+        config:
+          allowParallelInProgress: true
+      - id: tool-web
+        name: '@deepseek-ai/dsh-tool-web'
+        config:
+          fetch: true
+          searchTimeoutMs: 60000
+      - id: present
+        name: '@deepseek-ai/dsh-tool-present'
+      - id: tool-plugin-manager
+        name: '@deepseek-ai/dsh-plugin-manager/tools'
+        disabled: !!js "!ctx.get('profileContext')"
+      - id: tool-plugin-market
+        name: '@deepseek-ai/dsh-plugin-market/tools'
+        disabled: true
+
+# Isolated compaction policy for ptc.
+- id: preset-ptc
+  name: '@deepseek-ai/dsh-agent-preset'
+  config:
+    id: ptc
+    order: 2
+    plugins:
+      - id: persona
+        name: '@deepseek-ai/dsh-persona'
+        config:
+          prefix: You are a coding agent powered by the {{model}} model.
+      - id: agent-instructions
+        name: '@deepseek-ai/dsh-agent-instructions'
+        config:
+          maxBytes: 65536
+      - id: time-context
+        name: '@deepseek-ai/dsh-time-context'
+      - id: tool-bash
+        name: '@deepseek-ai/dsh-tool-bash'
+        disabled: !!js process.platform === 'win32'
+      - id: tool-pwsh
+        name: '@deepseek-ai/dsh-tool-pwsh'
+        disabled: !!js process.platform !== 'win32'
+      - id: tool-fs
+        name: '@deepseek-ai/dsh-tool-fs'
+        config:
+          # Set true to add the apply_patch tool beside edit.
+          applyPatch: false
+      - id: tool-fs-search
+        name: '@deepseek-ai/dsh-tool-fs-search'
+        config:
+          sampleOverCapGlobResults: false
+      - id: tool-jobs
+        name: '@deepseek-ai/dsh-tool-jobs'
+      - id: tool-schedule
+        name: '@deepseek-ai/dsh-tool-schedule'
+      - id: skill-filesystem
+        name: '@deepseek-ai/dsh-skill-filesystem'
+      - id: tool-skill
+        name: '@deepseek-ai/dsh-tool-skill'
+      - id: command-goal
+        name: '@deepseek-ai/dsh-command-goal'
+      - id: tool-goal
+        name: '@deepseek-ai/dsh-tool-goal'
+      - id: planning
+        name: cordis:group
+        group: true
+        isolate:
+          planMode: true
+        config:
+          - id: plan-mode
+            name: '@deepseek-ai/dsh-plan-mode'
+            config:
+              section: |
+                You are in plan mode. Stay in plan mode until the user approves your plan through exit_plan_mode or switches the session mode. Imperative language to implement changes means plan the implementation, not execute it. A user's conversational agreement — including an answer confirming something you asked — approves nothing and does not end plan mode; fold the confirmed decision into the plan and submit it through exit_plan_mode.
+
+                Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
+
+                The tool catalog stays the same across modes for request-cache stability. These plan-mode rules override any later tool description or guidance that suggests using mutation tools; those tools remain listed to keep the tool catalog unchanged. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
+
+                Resolve discoverable facts by inspection. Use ask_user_question only for user-owned choices or material ambiguity that inspection cannot answer. Do not ask the user where code lives or how current behavior works when you can find out.
+
+                Make the plan decision-complete: state the goal and success criteria; group implementation changes by subsystem; identify public API, schema, and data-flow changes; cover edge cases, failure modes, tests, acceptance criteria, and explicit assumptions. Keep it concise enough to review but detailed enough that another engineer can implement it without making design decisions.
+
+                When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.
+      - id: compaction
+        name: cordis:group
+        group: true
+        isolate:
+          compaction: true
+          toolResultPruner: true
+        config:
+          - id: compaction-basic
+            name: '@deepseek-ai/dsh-compaction-basic'
+            config:
+              modelPolicies: *north-lan-model-policies
+          - id: command-compact
+            name: '@deepseek-ai/dsh-command-compact'
+          - id: tool-result-pruner
+            name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+            config:
+              thresholdChars: 8192
+              headChars: 4096
+              tailChars: 1024
+      - id: delegation
+        name: cordis:group
+        group: true
+        isolate:
+          workflowEngine: true
+        config:
+          - id: tool-subagent-control
+            name: '@deepseek-ai/dsh-tool-subagent-control'
+          - id: tool-subagent
+            name: '@deepseek-ai/dsh-tool-subagent'
+            config:
+              provider: spawn
+              toolName: subagent
+              modelSelection: true
+              modelDiscovery: true
+          - id: tool-subagent-fork
+            name: '@deepseek-ai/dsh-tool-subagent'
+            config:
+              provider: fork
+              toolName: subagent_fork
+          - id: workflow-ptc
+            name: '@deepseek-ai/dsh-workflow-ptc'
+            disabled: true
+            config:
+              provider: spawn
+          - id: tool-workflow
+            name: '@deepseek-ai/dsh-tool-workflow'
+            disabled: true
+      - id: tool-ask-user
+        name: '@deepseek-ai/dsh-tool-ask-user'
+      - id: tool-todo
+        name: '@deepseek-ai/dsh-tool-todo'
+        config:
+          allowParallelInProgress: true
+      - id: tool-web
+        name: '@deepseek-ai/dsh-tool-web'
+        config:
+          fetch: true
+          searchTimeoutMs: 60000
+      - id: tool-executor-ptc
+        name: '@deepseek-ai/dsh-tool-executor-ptc'
+      - id: present
+        name: '@deepseek-ai/dsh-tool-present'
+      - id: tool-plugin-manager
+        name: '@deepseek-ai/dsh-plugin-manager/tools'
+        disabled: true
+      - id: tool-plugin-market
+        name: '@deepseek-ai/dsh-plugin-market/tools'
+        disabled: true
+
+# Isolated compaction policy for minimal.
+- id: preset-minimal
+  name: '@deepseek-ai/dsh-agent-preset'
+  config:
+    id: minimal
+    order: 3
+    plugins:
+      - id: persona
+        name: '@deepseek-ai/dsh-persona'
+        config:
+          prefix: You are a helpful software engineer assistant.
+          complete: true
+          includeRuntimeContext: false
+      - id: tool-fs
+        name: '@deepseek-ai/dsh-tool-fs'
+        config:
+          read: false
+          readImage: true
+          write: false
+          edit: false
+      - id: compaction
+        name: cordis:group
+        group: true
+        isolate:
+          compaction: true
+        config:
+          - id: compaction-basic
+            name: '@deepseek-ai/dsh-compaction-basic'
+            config:
+              modelPolicies: *north-lan-model-policies
+          - id: command-compact
+            name: '@deepseek-ai/dsh-command-compact'
+      - id: persistent-shell
+        name: cordis:group
+        group: true
+        isolate:
+          terminals: true
+        config:
+          - id: pty
+            name: '@deepseek-ai/dsh-terminal'
+          - id: terminal-bash
+            name: '@deepseek-ai/dsh-terminal-bash'
+            disabled: !!js process.platform === 'win32'
+            config:
+              timeoutMs: 300000
+          - id: persistent-bash
+            name: '@deepseek-ai/dsh-tool-bash-persistent'
+            disabled: !!js process.platform === 'win32'
+            config:
+              timeoutMs: 300000
+              description: |-
+                Run commands in a bash shell
+                * When invoking this tool, the contents of the "command" parameter does NOT need to be XML-escaped.
+                * Network access depends on the task environment. Prefer configured mirrors/proxies when they are available.
+                * State is persistent across command calls and discussions with the user.
+                * To inspect a particular line range of a file, e.g. lines 10-25, try 'sed -n 10,25p /path/to/the/file'.
+                * Please avoid commands that may produce a very large amount of output.
+                * Please run long lived commands in the background, e.g. 'sleep 10 &' or start a server in the background.
+          - id: terminal-pwsh
+            name: '@deepseek-ai/dsh-terminal-bash'
+            disabled: !!js process.platform !== 'win32'
+            config:
+              shellDialect: pwsh
+              timeoutMs: 300000
+          - id: persistent-pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh-persistent'
+            disabled: !!js process.platform !== 'win32'
+            config:
+              timeoutMs: 300000
+              description: |-
+                Run commands in a PowerShell shell
+                * When invoking this tool, the contents of the "command" parameter does NOT need to be XML-escaped.
+                * You don't have access to the internet via this tool.
+                * State is persistent across command calls and discussions with the user.
+                * Use native Windows paths (C:\...) and $env:NAME variables; this is PowerShell, not bash.
+                * Please avoid commands that may produce a very large amount of output.
+                * Please run long lived commands in the background, e.g. 'Start-Job' or start a server with Start-Process.
+
+# Isolated compaction policy for cordis.
+- id: preset-cordis
+  name: '@deepseek-ai/dsh-agent-preset'
+  config:
+    id: cordis
+    order: 4
+    plugins:
+      # Same persona as `standard`: tool descriptions and the skill catalog carry
+      # the operating detail, and the skills own the preset-authoring rules.
+      - id: persona
+        name: '@deepseek-ai/dsh-persona'
+        config:
+          prefix: >-
+            You are a coding agent powered by the {{model}} model.
+      - id: agent-instructions
+        name: '@deepseek-ai/dsh-agent-instructions'
+        config:
+          maxBytes: 65536
+      - id: time-context
+        name: '@deepseek-ai/dsh-time-context'
+      - id: tool-bash
+        name: '@deepseek-ai/dsh-tool-bash'
+        disabled: !!js process.platform === 'win32'
+      - id: tool-pwsh
+        name: '@deepseek-ai/dsh-tool-pwsh'
+        disabled: !!js process.platform !== 'win32'
+      - id: tool-fs
+        name: '@deepseek-ai/dsh-tool-fs'
+        config:
+          # Set true to add the apply_patch tool beside edit.
+          applyPatch: false
+      - id: tool-fs-search
+        name: '@deepseek-ai/dsh-tool-fs-search'
+        config:
+          sampleOverCapGlobResults: false
+      - id: tool-jobs
+        name: '@deepseek-ai/dsh-tool-jobs'
+      - id: tool-schedule
+        name: '@deepseek-ai/dsh-tool-schedule'
+      - id: command-goal
+        name: '@deepseek-ai/dsh-command-goal'
+      - id: tool-goal
+        name: '@deepseek-ai/dsh-tool-goal'
+      - id: planning
+        name: cordis:group
+        group: true
+        isolate:
+          planMode: true
+        config:
+          - id: plan-mode
+            name: '@deepseek-ai/dsh-plan-mode'
+            config:
+              section: |
+                You are in plan mode. Stay in plan mode until the user approves your plan through exit_plan_mode or switches the session mode. Imperative language to implement changes means plan the implementation, not execute it. A user's conversational agreement — including an answer confirming something you asked — approves nothing and does not end plan mode; fold the confirmed decision into the plan and submit it through exit_plan_mode.
+
+                Explore first. Use non-mutating reads, searches, static analysis, and checks to ground the plan in the actual repository. Do not edit or write files, change configuration, run formatters or code generation that rewrites tracked files, commit, or otherwise carry out the plan. Prefer existing functions and patterns over new machinery.
+
+                The tool catalog stays the same across modes for request-cache stability. These plan-mode rules override any later tool description or guidance that suggests using mutation tools; those tools remain listed to keep the tool catalog unchanged. Do not use todo_write to track this planning phase: it tracks implementation after an approved plan, while the plan itself belongs in exit_plan_mode.
+
+                Resolve discoverable facts by inspection. Use ask_user_question only for user-owned choices or material ambiguity that inspection cannot answer. Do not ask the user where code lives or how current behavior works when you can find out.
+
+                Make the plan decision-complete: state the goal and success criteria; group implementation changes by subsystem; identify public API, schema, and data-flow changes; cover edge cases, failure modes, tests, acceptance criteria, and explicit assumptions. Keep it concise enough to review but detailed enough that another engineer can implement it without making design decisions.
+
+                When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.
+      - id: compaction
+        name: cordis:group
+        group: true
+        isolate:
+          compaction: true
+          toolResultPruner: true
+        config:
+          - id: compaction-basic
+            name: '@deepseek-ai/dsh-compaction-basic'
+            config:
+              modelPolicies: *north-lan-model-policies
+          - id: command-compact
+            name: '@deepseek-ai/dsh-command-compact'
+          - id: tool-result-pruner
+            name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+            config:
+              thresholdChars: 8192
+              headChars: 4096
+              tailChars: 1024
+      - id: delegation
+        name: cordis:group
+        group: true
+        isolate:
+          workflowEngine: true
+        config:
+          - id: tool-subagent-control
+            name: '@deepseek-ai/dsh-tool-subagent-control'
+          - id: tool-subagent
+            name: '@deepseek-ai/dsh-tool-subagent'
+            config:
+              provider: spawn
+              toolName: subagent
+              modelSelection: true
+              modelDiscovery: true
+          - id: tool-subagent-fork
+            name: '@deepseek-ai/dsh-tool-subagent'
+            config:
+              provider: fork
+              toolName: subagent_fork
+          - id: workflow-ptc
+            name: '@deepseek-ai/dsh-workflow-ptc'
+            config:
+              provider: spawn
+          - id: tool-workflow
+            name: '@deepseek-ai/dsh-tool-workflow'
+      - id: tool-ask-user
+        name: '@deepseek-ai/dsh-tool-ask-user'
+      - id: tool-todo
+        name: '@deepseek-ai/dsh-tool-todo'
+        config:
+          allowParallelInProgress: true
+      - id: tool-web
+        name: '@deepseek-ai/dsh-tool-web'
+        config:
+          fetch: true
+          searchTimeoutMs: 60000
+      - id: tool-cordis
+        name: '@deepseek-ai/dsh-tool-cordis'
+      - id: skill-filesystem
+        name: '@deepseek-ai/dsh-skill-filesystem'
+        config:
+          customSkillDirs:
+            - !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@deepseek-ai/dsh-agent-preset/package.json')), 'skills')
+      - id: tool-skill
+        name: '@deepseek-ai/dsh-tool-skill'
+      - id: present
+        name: '@deepseek-ai/dsh-tool-present'
+      - id: tool-plugin-manager
+        name: '@deepseek-ai/dsh-plugin-manager/tools'
+        disabled: !!js "!ctx.get('profileContext')"
+      - id: tool-plugin-market
+        name: '@deepseek-ai/dsh-plugin-market/tools'
+        disabled: !!js "!ctx.get('profileContext')"
+
+# Isolated compaction policy for office.
+- id: preset-office
+  name: '@deepseek-ai/dsh-agent-preset'
+  config:
+    id: office
+    name: 办公助手
+    description: 文档、表格、演示文稿与日常写作
+    order: 0
+    plugins:
+      - id: persona
+        name: '@deepseek-ai/dsh-persona'
+        config:
+          prefix: >-
+            你是诺思（North）办公助手，由 {{model}} 模型驱动。用简体中文回答，结论先行；
+            涉及文件时在当前工作区内操作，生成 Word、Excel、PPT 时使用对应的办公技能并用 present 交付文件。
+      - id: agent-instructions
+        name: '@deepseek-ai/dsh-agent-instructions'
+        config:
+          maxBytes: 65536
+      - id: time-context
+        name: '@deepseek-ai/dsh-time-context'
+      - id: tool-bash
+        name: '@deepseek-ai/dsh-tool-bash'
+        disabled: !!js process.platform === 'win32'
+      - id: tool-pwsh
+        name: '@deepseek-ai/dsh-tool-pwsh'
+        disabled: !!js process.platform !== 'win32'
+      - id: tool-fs
+        name: '@deepseek-ai/dsh-tool-fs'
+      - id: tool-fs-search
+        name: '@deepseek-ai/dsh-tool-fs-search'
+        config:
+          sampleOverCapGlobResults: false
+      - id: tool-jobs
+        name: '@deepseek-ai/dsh-tool-jobs'
+      - id: tool-schedule
+        name: '@deepseek-ai/dsh-tool-schedule'
+      - id: skill-filesystem
+        name: '@deepseek-ai/dsh-skill-filesystem'
+      - id: tool-skill
+        name: '@deepseek-ai/dsh-tool-skill'
+      - id: compaction
+        name: cordis:group
+        group: true
+        isolate:
+          compaction: true
+          toolResultPruner: true
+        config:
+          - id: compaction-basic
+            name: '@deepseek-ai/dsh-compaction-basic'
+            config:
+              modelPolicies: *north-lan-model-policies
+          - id: command-compact
+            name: '@deepseek-ai/dsh-command-compact'
+          - id: tool-result-pruner
+            name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+            config:
+              thresholdChars: 8192
+              headChars: 4096
+              tailChars: 1024
+      - id: tool-ask-user
+        name: '@deepseek-ai/dsh-tool-ask-user'
+      - id: tool-todo
+        name: '@deepseek-ai/dsh-tool-todo'
+        config:
+          allowParallelInProgress: true
+      - id: present
+        name: '@deepseek-ai/dsh-tool-present'

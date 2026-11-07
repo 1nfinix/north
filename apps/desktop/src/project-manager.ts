@@ -30,7 +30,7 @@ const DSH_PACKAGE = '@deepseek-ai/dsh'
 const CORE_BUILD_PACKAGE = '@deepseek-ai/dsh-subprocess-local'
 const WEB_PROFILE = PROFILE_TEMPLATES.web as ProfileTemplate
 /** Distribution bundles layered over the Web template; `verify-product-use` reads this literal as Desktop's default composition. */
-const DESKTOP_DISTRIBUTION_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-north-bundle']
+const DESKTOP_DISTRIBUTION_BUNDLES: readonly string[] = ['@deepseek-ai/dsh-north-bundle', '@deepseek-ai/dsh-north-dev-bundle']
 /** Desktop's profile bundles; recovery keeps the distribution layer. */
 const DESKTOP_BUNDLES: readonly string[] = [...WEB_PROFILE.bundles, ...DESKTOP_DISTRIBUTION_BUNDLES]
 const WORKSPACE_SETTINGS = 'nodeLinker: hoisted\nautoInstallPeers: false\n'

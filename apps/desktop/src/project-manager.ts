@@ -2,6 +2,7 @@
 
 import {
   existsSync,
+  fchmodSync,
   fsyncSync,
   lstatSync,
   mkdirSync,
@@ -9,10 +10,13 @@ import {
   realpathSync,
   closeSync,
   readFileSync,
+  renameSync,
+  statSync,
   unlinkSync,
   writeFileSync,
   writeSync,
 } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import {
   DESKTOP_HOST_PACKAGE,
@@ -60,6 +64,53 @@ function migrateProfileSettings(projectDir: string): void {
   }
 }
 
+function migrateProfileBundles(projectDir: string): void {
+  const path = join(projectDir, 'package.json')
+  let raw: string
+  try {
+    raw = readFileSync(path, 'utf8')
+  } catch (error) {
+    throw new Error(`desktop project: cannot read profile manifest ${path}`, { cause: error })
+  }
+  let manifest: unknown
+  try {
+    manifest = JSON.parse(raw)
+  } catch (error) {
+    throw new Error(`desktop project: cannot parse profile manifest ${path}`, { cause: error })
+  }
+  if (manifest === null || typeof manifest !== 'object' || Array.isArray(manifest)
+    || !('dsh' in manifest) || manifest.dsh === null || typeof manifest.dsh !== 'object' || Array.isArray(manifest.dsh)
+    || !('profile' in manifest.dsh) || manifest.dsh.profile === null || typeof manifest.dsh.profile !== 'object' || Array.isArray(manifest.dsh.profile)
+    || !('bundles' in manifest.dsh.profile) || !Array.isArray(manifest.dsh.profile.bundles)
+    || !manifest.dsh.profile.bundles.every((bundle: unknown) => typeof bundle === 'string')) {
+    throw new Error(`desktop project: profile manifest ${path} must have a string array at dsh.profile.bundles`)
+  }
+  const bundles: string[] = [...manifest.dsh.profile.bundles]
+  let changed = false
+  for (const [index, bundle] of DESKTOP_BUNDLES.entries()) {
+    if (bundles.includes(bundle)) continue
+    const predecessor = DESKTOP_BUNDLES.slice(0, index).findLast(candidate => bundles.includes(candidate))
+    bundles.splice(predecessor === undefined ? bundles.length : bundles.indexOf(predecessor) + 1, 0, bundle)
+    changed = true
+  }
+  if (!changed) return
+  manifest.dsh.profile.bundles = bundles
+  const temporary = `${path}.${randomUUID()}.tmp`
+  const descriptor = openSync(temporary, 'wx', 0o600)
+  try {
+    try {
+      fchmodSync(descriptor, statSync(path).mode & 0o7777)
+      writeFileSync(descriptor, `${JSON.stringify(manifest, undefined, 2)}\n`)
+      fsyncSync(descriptor)
+    } finally {
+      closeSync(descriptor)
+    }
+    renameSync(temporary, path)
+  } finally {
+    if (existsSync(temporary)) unlinkSync(temporary)
+  }
+}
+
 /** Initializes the Desktop profile and disables third-party bundles during recovery. */
 export class DesktopProjectManager {
   /**
@@ -89,6 +140,7 @@ export class DesktopProjectManager {
       readDesktopRuntime(this.runtime.dsh)
       migrateProfileSettings(this.paths.profile)
       createPluginProfile(this.paths.profile)
+      migrateProfileBundles(this.paths.profile)
       removeLinkProjections(this.paths.profile)
     })
   }

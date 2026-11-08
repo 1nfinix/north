@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -43,6 +43,101 @@ afterEach(() => {
 })
 
 describe('desktop external plugin profile', () => {
+  it('adds a missing development bundle after the existing North bundle', async () => {
+    const { manager } = setup()
+    await manager.applyRelease()
+    const path = join(manager.paths.profile, 'package.json')
+    const manifest = JSON.parse(readFileSync(path, 'utf8')) as { dsh: { profile: { bundles: string[] } } }
+    manifest.dsh.profile.bundles = [
+      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-north-bundle',
+    ]
+    writeFileSync(path, JSON.stringify(manifest))
+    if (process.platform !== 'win32') chmodSync(path, 0o640)
+
+    await manager.applyRelease()
+
+    expect((JSON.parse(readFileSync(path, 'utf8')) as typeof manifest).dsh.profile.bundles).toEqual([
+      ...manifest.dsh.profile.bundles, '@deepseek-ai/dsh-north-dev-bundle',
+    ])
+    expect(readFileSync(path, 'utf8')).toBe(`${JSON.stringify({ ...manifest, dsh: { profile: { bundles: [
+      ...manifest.dsh.profile.bundles, '@deepseek-ai/dsh-north-dev-bundle',
+    ] } } }, undefined, 2)}\n`)
+    if (process.platform !== 'win32') expect(statSync(path).mode & 0o777).toBe(0o640)
+  })
+
+  it('does not rewrite a complete profile manifest', async () => {
+    const { manager } = setup()
+    await manager.applyRelease()
+    const path = join(manager.paths.profile, 'package.json')
+    writeFileSync(path, `${readFileSync(path, 'utf8')} `)
+    const before = statSync(path)
+    const content = readFileSync(path, 'utf8')
+
+    await manager.applyRelease()
+
+    expect(readFileSync(path, 'utf8')).toBe(content)
+    expect(statSync(path).ino).toBe(before.ino)
+  })
+
+  it('retains third-party bundles in their existing order', async () => {
+    const { manager } = setup()
+    await manager.applyRelease()
+    const path = join(manager.paths.profile, 'package.json')
+    const manifest = JSON.parse(readFileSync(path, 'utf8')) as { dsh: { profile: { bundles: string[] } } }
+    manifest.dsh.profile.bundles = [
+      'plugin-before', '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app',
+      '@deepseek-ai/dsh-north-bundle', 'plugin-after',
+    ]
+    writeFileSync(path, JSON.stringify(manifest))
+
+    await manager.applyRelease()
+
+    expect((JSON.parse(readFileSync(path, 'utf8')) as typeof manifest).dsh.profile.bundles).toEqual([
+      'plugin-before', '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app',
+      '@deepseek-ai/dsh-north-bundle', '@deepseek-ai/dsh-north-dev-bundle', 'plugin-after',
+    ])
+  })
+
+  it('appends distribution bundles when no predecessor is present', async () => {
+    const { manager } = setup()
+    await manager.applyRelease()
+    const path = join(manager.paths.profile, 'package.json')
+    const manifest = JSON.parse(readFileSync(path, 'utf8')) as { dsh: { profile: { bundles: string[] } } }
+    manifest.dsh.profile.bundles = ['plugin']
+    writeFileSync(path, JSON.stringify(manifest))
+
+    await manager.applyRelease()
+
+    expect((JSON.parse(readFileSync(path, 'utf8')) as typeof manifest).dsh.profile.bundles).toEqual([
+      'plugin', '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app',
+      '@deepseek-ai/dsh-north-bundle', '@deepseek-ai/dsh-north-dev-bundle',
+    ])
+  })
+
+  it.each(['{broken', JSON.stringify({ dsh: { profile: { bundles: ['valid', 1] } } })])
+  ('reports an invalid profile manifest without changing it', async (content) => {
+    const { manager } = setup()
+    await manager.applyRelease()
+    const path = join(manager.paths.profile, 'package.json')
+    writeFileSync(path, content)
+
+    await expect(manager.applyRelease()).rejects.toThrow(`profile manifest ${path}`)
+    expect(readFileSync(path, 'utf8')).toBe(content)
+    expect(existsSync(manager.paths.lock)).toBe(false)
+    expect(readdirSync(manager.paths.profile).filter(name => name.endsWith('.tmp'))).toEqual([])
+  })
+
+  it('can recover a malformed bundle list without starting the Host', async () => {
+    const { manager } = setup()
+    await manager.applyRelease()
+    const path = join(manager.paths.profile, 'package.json')
+    writeFileSync(path, JSON.stringify({ dsh: { profile: { bundles: ['plugin', 1] } } }))
+    await expect(manager.applyRelease()).rejects.toThrow('dsh.profile.bundles')
+
+    await expect(manager.disableAllPlugins()).resolves.toBeDefined()
+    await expect(manager.applyRelease()).resolves.toBeUndefined()
+  })
+
   it('preserves installed packages, profile state, and the lockfile when preparing a launch', async () => {
     const { manager } = setup()
     await manager.applyRelease()
